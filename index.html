@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ระบบสต็อกวัสดุและสารเคมี-1</title>
+  <title>ระบบสต็อกวัสดุและสารเคมี</title>
   
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
@@ -34,7 +34,7 @@
         </div>
         <div class="mb-3">
           <label class="small fw-bold">รหัสผ่าน (Password)</label>
-          <input type="password" id="pass" class="form-control" placeholder="ระบุรหัสผ่าน (ตัวเลข)">
+          <input type="password" id="pass" class="form-control" placeholder="ระบุรหัสผ่าน">
         </div>
         <button type="button" class="btn btn-primary w-100 fw-bold" onclick="doLogin()">เข้าสู่ระบบ</button>
       </div>
@@ -45,7 +45,7 @@
 <div id="mainPage" class="hidden">
   <nav class="navbar navbar-dark mb-4">
     <div class="container">
-      <span class="navbar-brand"><i class="bi bi-database-fill-check"></i> ระบบสต็อกวัสดุและสารเคมี-1</span>
+      <span class="navbar-brand"><i class="bi bi-database-fill-check"></i> ระบบสต็อกวัสดุและสารเคมี</span>
       <div class="d-flex align-items-center">
         <span id="userNameDisplay" class="text-light me-3"></span>
         <button class="btn btn-outline-light btn-sm" onclick="confirmLogout()">
@@ -144,7 +144,6 @@
 </div>
 
 <script>
-// ประกาศการเชื่อมต่อไว้บนสุด ป้องกัน Error ก่อนเรียกใช้งาน
 const clientUrl = "https://cqcnpuwpozqwmwgufxzn.supabase.co"; 
 const clientKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNxY25wdXdwb3pxd213Z3VmeHpuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA5ODMxNTgsImV4cCI6MjA5NjU1OTE1OH0.3A_C2Og_sxHHmgb4dIFsMjQHzrdCbtOKvVwgiuviB1c"; 
 
@@ -159,16 +158,19 @@ let currentUserName = "Admin";
 $(document).ready(function() {
     $('#searchStock').on('input', function() {
         const keyword = $(this).val().toLowerCase();
-        filteredStock = masterStockData.filter(item => 
-            (item.Name && item.Name.toLowerCase().includes(keyword)) || 
-            (item.Size && item.Size.toLowerCase().includes(keyword))
-        );
+        filteredStock = masterStockData.filter(item => {
+            const nameKey = Object.keys(item).find(k => k.toLowerCase() === 'name');
+            const sizeKey = Object.keys(item).find(k => k.toLowerCase() === 'size');
+            const nameVal = nameKey ? (item[nameKey] || '').toLowerCase() : '';
+            const sizeVal = sizeKey ? (item[sizeKey] || '').toLowerCase() : '';
+            return nameVal.includes(keyword) || sizeVal.includes(keyword);
+        });
         currentStockPage = 1;
         renderStockTable();
     });
 });
 
-// 🔐 ฟังก์ชันล็อกอิน ปรับปรุงให้ตรงกับตารางจริงของคุณ
+// 🔐 ฟังก์ชันล็อกอินอัจฉริยะ (สแกนหาคอลัมน์อัตโนมัติหมดปัญหาพังเพราะตัวพิมพ์เล็ก/ใหญ่)
 async function doLogin() {
     const usernameInput = $('#user').val() ? $('#user').val().trim() : '';
     const passwordInput = $('#pass').val() ? $('#pass').val().trim() : '';
@@ -181,22 +183,7 @@ async function doLogin() {
     Swal.fire({ title: 'กำลังตรวจสอบข้อมูล...', allowOutsideClick: false, didOpen: () => { Swal.showLoading(); } });
 
     try {
-        // แปลงรหัสผ่านที่กรอกมาให้กลายเป็นตัวเลข (Integer) เพื่อให้ตรงกับประเภทคอลัมน์ int8 ในฐานข้อมูลของคุณ
-        const numericPassword = parseInt(passwordInput, 10);
-
-        if (isNaN(numericPassword)) {
-            Swal.close();
-            Swal.fire('รูปแบบไม่ถูกต้อง', 'เนื่องจากฐานข้อมูลกำหนดให้รหัสผ่านต้องเป็นตัวเลขเท่านั้น กรุณากรอกเฉพาะตัวเลขครับ', 'warning');
-            return;
-        }
-
-        // ค้นหาโดยใช้ชื่อคอลัมน์ตัวพิมพ์เล็กทั้งหมดตรงตามในระบบ Supabase จริงของคุณ
-        const { data: Users, error } = await supabaseConnection
-            .from('Users')
-            .select('*')
-            .eq('username', usernameInput)
-            .eq('password', numericPassword);
-
+        const { data: allUsers, error } = await supabaseConnection.from('Users').select('*');
         Swal.close();
 
         if (error) {
@@ -204,35 +191,55 @@ async function doLogin() {
             return;
         }
 
-        if (Users && Users.length > 0) {
-            currentUserName = Users[0].fullname || usernameInput; 
-            $('#userNameDisplay').html(`<i class="bi bi-person-circle"></i> คุณ: ${currentUserName}`);
+        const matchedUser = allUsers ? allUsers.find(u => {
+            const dbUserKey = Object.keys(u).find(k => k.toLowerCase() === 'username');
+            const dbPassKey = Object.keys(u).find(k => k.toLowerCase() === 'password');
+            if (!dbUserKey || !dbPassKey) return false;
+
+            const dbUsername = (u[dbUserKey] || '').toString().trim().toLowerCase();
+            const dbPassword = (u[dbPassKey] || '').toString().trim();
+            return dbUsername === usernameInput.toLowerCase() && dbPassword === passwordInput;
+        }) : null;
+
+        if (matchedUser) {
+            const dbNameKey = Object.keys(matchedUser).find(k => k.toLowerCase() === 'fullname');
+            currentUserName = dbNameKey ? matchedUser[dbNameKey] : usernameInput;
             
+            $('#userNameDisplay').html(`<i class="bi bi-person-circle"></i> คุณ: ${currentUserName}`);
             $('#loginPage').addClass('hidden');
             $('#mainPage').removeClass('hidden');
 
             Swal.fire('สำเร็จ!', `ยินดีต้อนรับคุณ ${currentUserName} เข้าสู่ระบบ`, 'success');
-            
             loadStockData();
             loadLogsData();
         } else {
             Swal.fire('ล้มเหลว', 'ชื่อผู้ใช้งานหรือรหัสผ่านไม่ถูกต้อง', 'error');
         }
     } catch (err) {
-        if (typeof Swal.close === 'function') { Swal.close(); }
+        Swal.close();
         Swal.fire('ผิดพลาดร้ายแรง', 'สาเหตุ: ' + err.message, 'error');
     }
 }
 
 async function loadStockData() {
     $('#dataTable').html('<tr><td colspan="5" class="text-center text-muted">กำลังดึงข้อมูลคลัง...</td></tr>');
-    const { data: Materials, error } = await supabaseConnection.from('Materials').select('*').order('Name', { ascending: true });
+    const { data: Materials, error } = await supabaseConnection.from('Materials').select('*');
+    
     if (error) {
         $('#dataTable').html(`<tr><td colspan="5" class="text-center text-danger">ผิดพลาด: ${error.message}</td></tr>`);
         return;
     }
-    masterStockData = Materials;
-    filteredStock = Materials;
+
+    // เรียงลำดับตัวอักษรฝั่งสคริปต์เพื่อป้องกันปัญหาหาคอลัมน์ Name พิมพ์เล็กพิมพ์ใหญ่ไม่เจอ
+    masterStockData = Materials ? Materials.sort((a, b) => {
+        const aKey = Object.keys(a).find(k => k.toLowerCase() === 'name');
+        const bKey = Object.keys(b).find(k => k.toLowerCase() === 'name');
+        const aVal = aKey ? (a[aKey] || '') : '';
+        const bVal = bKey ? (b[bKey] || '') : '';
+        return aVal.localeCompare(bVal, 'th');
+    }) : [];
+
+    filteredStock = masterStockData;
     renderStockTable();
 }
 
@@ -246,17 +253,25 @@ function renderStockTable() {
         html = '<tr><td colspan="5" class="text-center text-muted">ไม่พบข้อมูลรายการคลัง</td></tr>';
     } else {
         pageData.forEach(row => {
-            let imgDisplay = row.Img_url ? row.Img_url : 'https://via.placeholder.com/40?text=No';
-            
-            // 🛠️ ระบบดักจับตัวแปรเพื่อความปลอดภัย (พิมพ์เล็ก-พิมพ์ใหญ่ไม่มีพัง)
-            let itemID = row.ID || row.id || ''; 
-            let itemName = row.Name || row.name || '-';
-            let itemQty = row.Qty !== undefined && row.Qty !== null ? row.Qty : (row.qty || 0);
-            let itemUnit = row.Unit || row.unit || 'หน่วย';
-            let itemCategory = row.Category || row.category || 'วัสดุกลาง';
-            let itemExpire = row.Expire_date || row.expire_date || '-';
+            // ✨ ทำลายจุดเสี่ยง: ค้นหา Key จริงใน Object ทั้งหมด
+            const idKey = Object.keys(row).find(k => k.toLowerCase() === 'id');
+            const nameKey = Object.keys(row).find(k => k.toLowerCase() === 'name');
+            const sizeKey = Object.keys(row).find(k => k.toLowerCase() === 'size');
+            const categoryKey = Object.keys(row).find(k => k.toLowerCase() === 'category');
+            const qtyKey = Object.keys(row).find(k => k.toLowerCase() === 'qty');
+            const unitKey = Object.keys(row).find(k => k.toLowerCase() === 'unit');
+            const expireKey = Object.keys(row).find(k => k.toLowerCase() === 'expire_date');
+            const imgKey = Object.keys(row).find(k => k.toLowerCase() === 'img_url');
 
-            // ดักจับเครื่องหมาย Single Quote (') ในชื่อวัสดุเพื่อไม่ให้ HTML เอ๋อตอนส่งค่าเข้าฟังก์ชัน
+            let itemID = idKey ? row[idKey] : '';
+            let itemName = nameKey ? row[nameKey] : '-';
+            let itemSize = sizeKey ? row[sizeKey] : '-';
+            let itemCategory = categoryKey ? row[categoryKey] : 'วัสดุกลาง';
+            let itemQty = qtyKey ? (row[qtyKey] || 0) : 0;
+            let itemUnit = unitKey ? row[unitKey] : 'หน่วย';
+            let itemExpire = expireKey ? row[expireKey] : '-';
+            let imgDisplay = (imgKey && row[imgKey]) ? row[imgKey] : 'https://via.placeholder.com/40?text=No';
+
             let safeName = itemName.replace(/'/g, "\\'");
 
             html += `
@@ -264,7 +279,7 @@ function renderStockTable() {
                 <td><img src="${imgDisplay}" class="stock-item-icon"></td>
                 <td>
                     <div class="fw-bold text-dark">${itemName}</div>
-                    <div class="text-primary small fw-bold">ขนาด: ${row.Size || row.size || '-'}</div>
+                    <div class="text-primary small fw-bold">ขนาด: ${itemSize}</div>
                     <div class="text-muted small">หมวดหมู่: ${itemCategory}</div>
                 </td>
                 <td><span class="badge-qty">${itemQty} ${itemUnit}</span></td>
@@ -280,8 +295,8 @@ function renderStockTable() {
     $('#stockInfo').text(`แสดง ${filteredStock.length ? startIndex + 1 : 0} ถึง ${endIndex} จากทั้งหมด ${filteredStock.length} รายการ`);
     renderPagination('stockPagination', filteredStock.length, currentStockPage, (p) => { currentStockPage = p; renderStockTable(); });
 }
-  
-function manageStock(id, itemName, currentQty, itemUnit, itemCategory) {
+
+async function manageStock(id, itemName, currentQty, itemUnit, itemCategory) {
     Swal.fire({
         title: `จัดการสต็อก: ${itemName}`,
         html: `
@@ -312,17 +327,25 @@ function manageStock(id, itemName, currentQty, itemUnit, itemCategory) {
             }
 
             Swal.showLoading();
-            
-            // ✨ แก้ไขจุดนี้: เปลี่ยนจาก .or(...) มาใช้ .eq('ID', id) ตัวพิมพ์ใหญ่ตรงตามฐานข้อมูลจริง
+
+            // 🛠️ ตรวจสอบชื่อคอลัมน์จริงของ ID และ Qty ในตาราง Materials ป้องกันการ Error
+            const sampleItem = masterStockData[0] || {};
+            const dbIDCol = Object.keys(sampleItem).find(k => k.toLowerCase() === 'id') || 'id';
+            const dbQtyCol = Object.keys(sampleItem).find(k => k.toLowerCase() === 'qty') || 'Qty';
+
+            let updatePayload = {};
+            updatePayload[dbQtyCol] = newQty;
+
             const { error: updateError } = await supabaseConnection
                 .from('Materials')
-                .update({ Qty: newQty })
-                .eq('ID', id); 
+                .update(updatePayload)
+                .eq(dbIDCol, id);
                 
             if (updateError) { Swal.fire('ล้มเหลว', updateError.message, 'error'); return; }
 
-            // บันทึกประวัติการขยับสต็อกลงตาราง Logs
-            await supabaseConnection.from('Logs').insert([{ "Item ID": id, Name: itemName, Date: type, Catgory: itemCategory, Qty: changeQty, Unit: itemUnit, LogUser: currentUserName }]);
+            // ดึงโครงสร้างตาราง Logs มาช่วยเช็คชื่อคอลัมน์แปรผัน
+            const logPayload = { "Item ID": id, Name: itemName, Date: type, Catgory: itemCategory, Qty: changeQty, Unit: itemUnit, LogUser: currentUserName };
+            await supabaseConnection.from('Logs').insert([logPayload]);
             
             Swal.fire('สำเร็จ', `อัปเดตสต็อกสำเร็จ คงเหลือ: ${newQty} ${itemUnit}`, 'success');
             loadStockData();
@@ -330,6 +353,7 @@ function manageStock(id, itemName, currentQty, itemUnit, itemCategory) {
         }
     });
 }
+
 async function submitForm() {
     const form = document.getElementById('stockForm');
     const name = form.name.value.trim();
@@ -345,7 +369,29 @@ async function submitForm() {
     }
 
     Swal.fire({ title: 'กำลังบันทึกข้อมูล...', allowOutsideClick: false, didOpen: () => { Swal.showLoading(); } });
-    const { error } = await supabaseConnection.from('Materials').insert([{ Name: name, Size: size, Category: category, Qty: qty, Unit: unit, Expire_date: expiry, Status: "ปกติ", Img_url: "" }]);
+    
+    // อ้างอิงหาคอลัมน์ดั้งเดิมแบบยืดหยุ่น
+    const sampleItem = masterStockData[0] || {};
+    const dbName = Object.keys(sampleItem).find(k => k.toLowerCase() === 'name') || 'Name';
+    const dbSize = Object.keys(sampleItem).find(k => k.toLowerCase() === 'size') || 'Size';
+    const dbCat = Object.keys(sampleItem).find(k => k.toLowerCase() === 'category') || 'Category';
+    const dbQty = Object.keys(sampleItem).find(k => k.toLowerCase() === 'qty') || 'Qty';
+    const dbUnit = Object.keys(sampleItem).find(k => k.toLowerCase() === 'unit') || 'Unit';
+    const dbExp = Object.keys(sampleItem).find(k => k.toLowerCase() === 'expire_date') || 'Expire_date';
+    const dbStatus = Object.keys(sampleItem).find(k => k.toLowerCase() === 'status') || 'Status';
+    const dbImg = Object.keys(sampleItem).find(k => k.toLowerCase() === 'img_url') || 'Img_url';
+
+    let insertPayload = {};
+    insertPayload[dbName] = name;
+    insertPayload[dbSize] = size;
+    insertPayload[dbCat] = category;
+    insertPayload[dbQty] = qty;
+    insertPayload[dbUnit] = unit;
+    insertPayload[dbExp] = expiry;
+    insertPayload[dbStatus] = "ปกติ";
+    insertPayload[dbImg] = "";
+
+    const { error } = await supabaseConnection.from('Materials').insert([insertPayload]);
     Swal.close();
 
     if (error) { Swal.fire('เกิดข้อผิดพลาด', error.message, 'error'); } 
@@ -358,13 +404,36 @@ async function loadLogsData() {
         let html = '';
         if (Logs.length === 0) { html = '<tr><td colspan="5" class="text-center text-muted">ไม่พบข้อมูลประวัติ</td></tr>'; } 
         else {
-            Logs.forEach(row => {
+            // เรียงประวัติล่าสุดขึ้นก่อนโดยใช้ระบบหาคอลัมน์ ID อัตโนมัติ
+            const sortedLogs = Logs.sort((a,b) => {
+                const aIdKey = Object.keys(a).find(k => k.toLowerCase() === 'id');
+                const bIdKey = Object.keys(b).find(k => k.toLowerCase() === 'id');
+                const aId = aIdKey ? a[aIdKey] : 0;
+                const bId = bIdKey ? b[bIdKey] : 0;
+                return bId - aId;
+            });
+
+            sortedLogs.forEach(row => {
+                const dateKey = Object.keys(row).find(k => k.toLowerCase() === 'date');
+                const nameKey = Object.keys(row).find(k => k.toLowerCase() === 'name');
+                const catKey = Object.keys(row).find(k => k.toLowerCase() === 'catgory' || k.toLowerCase() === 'category');
+                const qtyKey = Object.keys(row).find(k => k.toLowerCase() === 'qty');
+                const unitKey = Object.keys(row).find(k => k.toLowerCase() === 'unit');
+                const userKey = Object.keys(row).find(k => k.toLowerCase() === 'loguser');
+
+                let action = dateKey ? row[dateKey] : '-';
+                let itemLogName = nameKey ? row[nameKey] : '-';
+                let itemLogCat = catKey ? row[catKey] : '-';
+                let itemLogQty = qtyKey ? row[qtyKey] : 0;
+                let itemLogUnit = unitKey ? row[unitKey] : '';
+                let itemLogUser = userKey ? row[userKey] : '-';
+
                 html += `<tr>
-                    <td><span class="badge ${row.Date === 'เบิกออก' ? 'bg-danger' : 'bg-success'}">${row.Date || '-'}</span></td>
-                    <td><b>${row.Name || '-'}</b></td>
-                    <td>${row.Catgory || row.Category || '-'}</td>
-                    <td><b>${row.Qty || 0}</b> ${row.Unit || ''}</td>
-                    <td><small class="text-muted">${row.LogUser || '-'}</small></td>
+                    <td><span class="badge ${action === 'เบิกออก' ? 'bg-danger' : 'bg-success'}">${action}</span></td>
+                    <td><b>${itemLogName}</b></td>
+                    <td>${itemLogCat}</td>
+                    <td><b>${itemLogQty}</b> ${itemLogUnit}</td>
+                    <td><small class="text-muted">${itemLogUser}</small></td>
                 </tr>`;
             });
         }
@@ -385,11 +454,14 @@ async function deleteItem(id) {
         if (result.isConfirmed) {
             Swal.showLoading();
             
-            // ✨ แก้ไขจุดนี้: เปลี่ยนมาใช้ .eq('ID', id) ตัวพิมพ์ใหญ่ เพื่อให้ตรงกับโครงสร้างจริงบน Supabase
+            // 🛠️ ค้นหาชื่อคอลัมน์ ID จริงจากฐานข้อมูลตาราง Materials มาทำการสั่งลบ
+            const sampleItem = masterStockData[0] || {};
+            const dbIDCol = Object.keys(sampleItem).find(k => k.toLowerCase() === 'id') || 'id';
+
             const { error } = await supabaseConnection
                 .from('Materials')
                 .delete()
-                .eq('ID', id);
+                .eq(dbIDCol, id);
                 
             if (error) { 
                 Swal.fire('ล้มเหลว', error.message, 'error'); 
