@@ -312,7 +312,7 @@ async function manageStock(id, itemName, currentQty, itemUnit, itemCategory) {
         cancelButtonText: 'ยกเลิก',
         preConfirm: () => {
             const type = document.getElementById('swal-type').value;
-            const changeQty = parseInt(document.getElementById('swal-qty').value);
+            const changeQty = parseInt(document.getElementById('swal-qty').value, 10);
             if (!changeQty || changeQty <= 0) { Swal.showValidationMessage('กรุณาใส่จำนวนที่ถูกต้อง'); }
             return { type, changeQty };
         }
@@ -326,70 +326,67 @@ async function manageStock(id, itemName, currentQty, itemUnit, itemCategory) {
                 return;
             }
 
-            Swal.showLoading();
+            Swal.fire({ title: 'กำลังบันทึกข้อมูล...', allowOutsideClick: false, didOpen: () => { Swal.showLoading(); } });
 
-            // 1. อัปเดตยอดคงเหลือในตาราง Materials
-            const sampleItem = masterStockData[0] || {};
-            const dbIDCol = Object.keys(sampleItem).find(k => k.toLowerCase() === 'id') || 'id';
-            const dbQtyCol = Object.keys(sampleItem).find(k => k.toLowerCase() === 'qty') || 'Qty';
+            try {
+                // 1. อัปเดตยอดคงเหลือในตาราง Materials
+                const sampleItem = masterStockData[0] || {};
+                const dbIDCol = Object.keys(sampleItem).find(k => k.toLowerCase() === 'id') || 'id';
+                const dbQtyCol = Object.keys(sampleItem).find(k => k.toLowerCase() === 'qty') || 'Qty';
 
-            let updatePayload = {};
-            updatePayload[dbQtyCol] = newQty;
+                let updatePayload = {};
+                updatePayload[dbQtyCol] = newQty;
 
-            const { error: updateError } = await supabaseConnection
-                .from('Materials')
-                .update(updatePayload)
-                .eq(dbIDCol, id);
+                const { error: updateError } = await supabaseConnection
+                    .from('Materials')
+                    .update(updatePayload)
+                    .eq(dbIDCol, id);
+                    
+                if (updateError) { 
+                    Swal.fire('ล้มเหลวในการอัปเดตสต็อก', updateError.message, 'error'); 
+                    return; 
+                }
+
+                // 2. ✨ บันทึกประวัติลงตาราง Logs แบบถอดรหัสโครงสร้างตารางจริง (ป้องกันชื่อคอลัมน์เพี้ยน)
+                const generatedLogID = "LOG-" + Date.now() + "-" + Math.floor(1000 + Math.random() * 9000);
                 
-            if (updateError) { Swal.fire('ล้มเหลวในการอัปเดตสต็อก', updateError.message, 'error'); return; }
+                // ดึงข้อมูลแถวแรกของตาราง Logs มาดักหาชื่อคอลัมน์ที่ถูกต้อง (กรณีที่ในตารางมีข้อมูลอยู่แล้ว)
+                // หรือจะส่งค่าแบบ Hardcode คอลัมน์ที่ตรงตามรูปภาพที่คุณส่งมาแป๊ะๆ
+                const logPayload = {
+                    "Log ID": String(generatedLogID),
+                    "Date": String(type),
+                    "Item ID": String(id),
+                    "Name": String(itemName),
+                    "Catgory": String(itemCategory), // มั่นใจว่าตรงตามรูปคอลัมน์ที่ 5 ของคุณ
+                    "Qty": parseInt(changeQty, 10),
+                    "Unit": String(itemUnit),
+                    "LogUser": String(currentUserName)
+                };
 
-            // 2. ✨ บันทึกประวัติลงตาราง Logs (แปลงค่า Qty ให้เป็น Integer แน่นอน 100%)
-            const generatedLogID = "LOG-" + Date.now() + "-" + Math.floor(Math.random() * 1000);
+                const { data: logCheck, error: logError } = await supabaseConnection
+                    .from('Logs')
+                    .insert([logPayload])
+                    .select(); // บังคับคืนค่าตรวจสอบ
 
-            // บังคับเปลี่ยนโครงสร้าง Key ให้เป็น String และพิมพ์ใหญ่ตามตารางจริงแน่นอน
-            const logPayload = { 
-                "Log ID": String(generatedLogID),
-                "Date": String(type), 
-                "Item ID": String(id), 
-                "Name": String(itemName), 
-                "Catgory": String(itemCategory), 
-                "Qty": parseInt(changeQty, 10), 
-                "Unit": String(itemUnit), 
-                "LogUser": String(currentUserName) 
-            };
-            
-            // ยิงข้อมูลเข้าสู่ตาราง Logs และสั่งเลือกดึงข้อมูลกลับ (.select) เพื่อเช็คว่าเข้าตารางจริงไหม
-            const { data: logCheck, error: logError } = await supabaseConnection
-                .from('Logs')
-                .insert([logPayload])
-                .select(); // ✨ เพิ่ม .select() เพื่อบังคับให้ตรวจจับสถานะการบันทึกจริง
-            
-            if (logError) {
-                console.error("Log Insert Error:", logError);
-                Swal.fire('ตัดสต็อกสำเร็จ แต่บันทึกประวัติล้มเหลว', `สาเหตุหลังบ้าน: ${logError.message}`, 'error');
+                Swal.close();
+
+                if (logError) {
+                    console.error("Log Insert Error Detail:", logError);
+                    // เด้ง Error บอกเหตุผลแบบละเอียดว่าคอลัมน์ไหนทำพัง
+                    Swal.fire('ตัดสต็อกสำเร็จ แต่ตารางหลังบ้านไม่รับประวัติ', `ฟ้องว่า: ${logError.message}\n(Code: ${logError.code})`, 'warning');
+                    loadStockData();
+                    return;
+                }
+
+                // 🎉 ความสำเร็จที่แท้จริง
+                Swal.fire('สำเร็จ', `บันทึกข้อมูลและอัปเดตประวัติเข้าเซิร์ฟเวอร์สำเร็จ!`, 'success');
                 loadStockData();
-                return;
-            }
+                loadLogsData(); // โหลดประวัติสดใหม่จากเบสจริงมาแสดงแทนการใช้แถวจำลอง
 
-            // ถ้ายิงผ่านสำเร็จ ข้อมูลในฐานข้อมูลต้องไม่เป็นค่าว่าง
-            console.log("บันทึกสำเร็จจริง:", logCheck);
-            
-            Swal.fire('สำเร็จ', `อัปเดตสต็อกและบันทึกประวัติสำเร็จ คงเหลือ: ${newQty} ${itemUnit}`, 'success');
-            loadStockData();
-
-            // 3. แสดงผลบนหน้าเว็บ Real-time
-            let newRowHtml = `<tr>
-                <td><span class="badge ${type === 'เบิกออก' ? 'bg-danger' : 'bg-success'}">${type}</span></td>
-                <td><b>${itemName}</b></td>
-                <td>${itemCategory}</td>
-                <td><b>${changeQty}</b> ${itemUnit}</td>
-                <td><small class="text-muted">${currentUserName}</small></td>
-            </tr>`;
-            
-            if ($('#logsTableBody').html().includes('ไม่พบข้อมูลประวัติ')) {
-                $('#logsTableBody').html('');
+            } catch (err) {
+                Swal.close();
+                Swal.fire('ระบบภายในขัดข้อง', err.message, 'error');
             }
-            $('#logsTableBody').prepend(newRowHtml);
         }
     });
 }
