@@ -179,39 +179,50 @@ async function doLogin() {
     Swal.fire({ title: 'กำลังตรวจสอบข้อมูล...', allowOutsideClick: false, didOpen: () => { Swal.showLoading(); } });
 
     try {
-        const { data: Users, error } = await supabaseConnection
+        // 🌟 1. ดึงข้อมูลผู้ใช้งานทั้งหมดในตารางมาพักไว้ในเว็บก่อน (เลี่ยงปัญหา .eq เอ๋อ)
+        const { data: allUsers, error } = await supabaseConnection
             .from('Users')
-            .select('*')
-            .eq('username', username)
-            .eq('password', password);
+            .select('*');
 
-        Swal.close();
+        Swal.close(); 
 
         if (error) {
             Swal.fire('เกิดข้อผิดพลาดจากฐานข้อมูล', error.message, 'error');
             return;
         }
 
-        if (Users && Users.length > 0) {
-            currentUserName = Users[0].fullname || username; 
+        // 🌟 2. ใช้ JavaScript ค้นหาแบบไม่สนตัวพิมพ์เล็กพิมพ์ใหญ่ และตัดช่องว่างทิ้งทั้งหมด
+        const matchedUser = allUsers.find(u => {
+            // ดึงค่าจากแถวในตาราง (รองรับทั้งชื่อคอลัมน์ตัวเล็กและตัวใหญ่)
+            const dbUsername = (u.username || u.Username || '').toString().trim().toLowerCase();
+            const dbPassword = (u.password || u.Password || '').toString().trim();
+            
+            return dbUsername === username.toLowerCase() && dbPassword === password;
+        });
+
+        // 🌟 3. ตรวจสอบผลลัพธ์
+        if (matchedUser) {
+            // รองรับทั้ง fullname และ Fullname
+            currentUserName = matchedUser.fullname || matchedUser.Fullname || username; 
             $('#userNameDisplay').html(`<i class="bi bi-person-circle"></i> คุณ: ${currentUserName}`);
             
+            // สลับหน้าจอเปิดคลังสินค้า
             $('#loginPage').addClass('hidden');
             $('#mainPage').removeClass('hidden');
 
             Swal.fire('สำเร็จ!', `ยินดีต้อนรับคุณ ${currentUserName} เข้าสู่ระบบ`, 'success');
             
+            // โหลดข้อมูลตารางอื่น ๆ
             loadStockData();
             loadLogsData();
         } else {
             Swal.fire('ล้มเหลว', 'ชื่อผู้ใช้งานหรือรหัสผ่านไม่ถูกต้อง', 'error');
         }
+
     } catch (err) {
         Swal.close();
-        // 🌟 ให้มันโชว์เลยว่าระบบคอมพิวเตอร์ฟ้องว่าอะไรกันแน่
         Swal.fire('ผิดพลาดร้ายแรง', 'สาเหตุ: ' + err.message, 'error');
     }
-}
 
 async function loadStockData() {
     $('#dataTable').html('<tr><td colspan="5" class="text-center text-muted">กำลังดึงข้อมูลคลัง...</td></tr>');
