@@ -122,11 +122,11 @@
             <table class="table table-sm table-hover align-middle">
               <thead class="table-dark">
                 <tr>
-                  <th>ประเภท (คำสั่ง)</th>
+                  <th>คำสั่ง</th>
                   <th>รายการวัสดุ</th>
                   <th>หมวดหมู่</th>
                   <th>จำนวน</th>
-                  <th>ผู้บันทึก</th>
+                  <th>ผู้ทำรายการ</th>
                 </tr>
               </thead>
               <tbody id="logsTableBody"></tbody>
@@ -143,13 +143,11 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
 <script>
-// 🔑 เชื่อมต่อคลาวด์ระบบฐานข้อมูลข้อมูลสต็อก
 const SUPABASE_URL = "https://cqcnpuwpozqwmwgufxzn.supabase.co"; 
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNxY25wdXdwb3pxd213Z3VmeHpuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA5ODMxNTgsImV4cCI6MjA5NjU1OTE1OH0.3A_C2Og_sxHHmgb4dIFsMjQHzrdCbtOKvVwgiuviB1c"; 
 
 const supabase = Supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-// ตัวแปรภายในโปรแกรม
 let masterStockData = []; 
 let masterLogsData = [];  
 let filteredStock = [];   
@@ -170,13 +168,12 @@ $(document).ready(function() {
 });
 
 // ==========================================
-// 🔐 ฟังก์ชัน: ตรวจสอบและเข้าสู่ระบบ (รวมตัวเช็คค่าว่าง)
+// 🔐 ฟังก์ชันล็อกอิน (ตรวจรับสิทธิ์จากตาราง Users)
 // ==========================================
 async function doLogin() {
     const username = $('#user').val() ? $('#user').val().trim() : '';
     const password = $('#pass').val() ? $('#pass').val().trim() : '';
 
-    // ส่วนการตรวจสอบค่าว่าง - จุดนี้ต้องแจ้งเตือนทันทีเมื่อปล่อยช่องว่างไว้
     if (username === '' || password === '') {
         Swal.fire('คำเตือน', 'กรุณากรอกชื่อผู้ใช้งานและรหัสผ่าน', 'warning');
         return;
@@ -189,20 +186,19 @@ async function doLogin() {
     });
 
     try {
-        // อ้างอิงตาราง Users ตัวพิมพ์เล็กตามโครงสร้างหน้าเว็บจริงของคุณ
         const { data: Users, error } = await supabase
             .from('Users')
             .select('*')
             .eq('username', username)
-            .eq('password', password)
-            .single();
+            .eq('password', password);
 
         Swal.close();
 
-        if (error || !Users) {
-            Swal.fire('ล้มเหลว', 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง', 'error');
+        if (error || !Users || Users.length === 0) {
+            Swal.fire('ล้มเหลว', 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง หรือโปรดเปิด RLS Policy', 'error');
         } else {
-            currentUserName = Users.fullname || username; 
+            const loggedInUser = Users[0];
+            currentUserName = loggedInUser.fullname || username; 
             $('#userNameDisplay').html(`<i class="bi bi-person-circle"></i> คุณ: ${currentUserName}`);
             
             $('#loginPage').addClass('hidden');
@@ -215,12 +211,12 @@ async function doLogin() {
         }
     } catch (err) {
         Swal.close();
-        Swal.fire('เกิดข้อผิดพลาด', 'ไม่สามารถเชื่อมต่อฐานข้อมูลได้', 'error');
+        Swal.fire('เกิดข้อผิดพลาด', 'ไม่สามารถเชื่อมต่อระบบได้', 'error');
     }
 }
 
 // ==========================================
-// 📊 ฟังก์ชัน: โหลดตารางสินค้าคลัง (Materials)
+// 📊 ฟังก์ชันคลังสินค้า
 // ==========================================
 async function loadStockData() {
     $('#dataTable').html('<tr><td colspan="5" class="text-center text-muted">กำลังดึงข้อมูลคลัง...</td></tr>');
@@ -269,12 +265,12 @@ function renderStockTable() {
         });
     }
     $('#dataTable').html(html);
-    $('#stockInfo').text(`แสดง ${startIndex + 1} ถึง ${endIndex} จากทั้งหมด ${filteredStock.length} รายการ`);
+    $('#stockInfo').text(`แสดง ${filteredStock.length ? startIndex + 1 : 0} ถึง ${endIndex} จากทั้งหมด ${filteredStock.length} รายการ`);
     renderPagination('stockPagination', filteredStock.length, currentStockPage, (p) => { currentStockPage = p; renderStockTable(); });
 }
 
 // ==========================================
-// 📈 ฟังก์ชัน: ปรับปรุงสต็อกเบิกจ่ายเข้าตาราง Logs
+// 📈 ฟังก์ชันบันทึกการเบิกจ่ายสินค้า
 // ==========================================
 function manageStock(id, itemName, currentQty, itemUnit, itemCategory) {
     Swal.fire({
@@ -320,7 +316,7 @@ function manageStock(id, itemName, currentQty, itemUnit, itemCategory) {
                 return;
             }
 
-            // จัดเก็บลงตารางบันทึกประวัติการเบิกจ่าย (Logs)
+            // รองรับคอลัมน์แบบเว้นวรรคด้วยการใส่เครื่องหมายอัญประกาศครอบชื่อคอลัมน์สไตล์คีย์อ็อบเจกต์
             await supabase
                 .from('Logs')
                 .insert([
@@ -343,7 +339,7 @@ function manageStock(id, itemName, currentQty, itemUnit, itemCategory) {
 }
 
 // ==========================================
-// 📥 ฟังก์ชัน: การเพิ่มรายการผลิตภัณฑ์ใหม่
+// 📥 ฟังก์ชันเพิ่มข้อมูลรายการคลัง
 // ==========================================
 async function submitForm() {
     const form = document.getElementById('stockForm');
@@ -375,7 +371,7 @@ async function submitForm() {
 }
 
 // ==========================================
-// 🕒 ฟังก์ชัน: เรียกประวัติข้อมูลชุดบันทึกย้อนหลัง
+// 🕒 ฟังก์ชันดึงประวัติ Logs
 // ==========================================
 async function loadLogsData() {
     const { data: Logs, error } = await supabase.from('Logs').select('*');
@@ -401,7 +397,7 @@ async function loadLogsData() {
 }
 
 // ==========================================
-// 🗑️ ฟังก์ชัน: การลบแถวข้อมูล
+// 🗑️ ฟังก์ชันลบรายการคลัง
 // ==========================================
 async function deleteItem(id) {
     Swal.fire({
