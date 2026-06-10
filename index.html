@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>ระบบสต็อกวัสดุและสารเคมี</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  <style>
+    :root { --primary-color: #2c3e50; }
+    body { background: #f4f7f6; font-family: 'Segoe UI', sans-serif; }
+    .navbar { background: var(--primary-color) !important; color: white; }
+    .card { border: none; border-radius: 15px; box-shadow: 0 5px 15px rgba(0,0,0,0.05); }
+    .hidden { display: none; }
+    .stock-item-icon {
+      width: 40px;
+      height: 40px;
+      object-fit: cover;
+      border-radius: 8px;
+      border: 1px solid #ddd;
+    }
+    #dataTable td:first-child {
+      text-align: center;
+      width: 50px;
+    }
+    .badge-qty {
+      background-color: #e8f0fe;
+      color: #1a73e8;
+      padding: 0.4rem 0.6rem;
+      border-radius: 6px;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+
+<div id="loginPage" class="container mt-5">
+  <div class="row justify-content-center">
+    <div class="col-md-4">
+      <div class="card p-4 shadow-sm">
+        <h4 class="text-center mb-4"><i class="bi bi-lock-fill"></i> เข้าสู่ระบบ</h4>
+        <div class="mb-3">
+          <label class="small">ชื่อผู้ใช้งาน (Username)</label>
+          <input type="text" id="user" class="form-control" placeholder="ระบุชื่อผู้ใช้งาน">
+        </div>
+        <div class="mb-3">
+          <label class="small">รหัสผ่าน (Password)</label>
+          <input type="password" id="pass" class="form-control" placeholder="ระบุรหัสผ่าน">
+        </div>
+        <button type="button" class="btn btn-primary w-100" onclick="doLogin()">เข้าสู่ระบบ</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="mainPage" class="hidden">
+  <nav class="navbar navbar-dark mb-4">
+    <div class="container">
+      <span class="navbar-brand"><i class="bi bi-database-fill-check"></i> ระบบสต็อกวัสดุและสารเคมี (Supabase Cloud)</span>
+      <div class="d-flex align-items-center">
+        <span id="userNameDisplay" class="text-light me-3"></span>
+        <button class="btn btn-outline-light btn-sm" onclick="confirmLogout()">
+          <i class="bi bi-box-arrow-right"></i> ออกจากระบบ
+        </button>
+      </div>
+    </div>
+  </nav>
+
+  <div class="container">
+    <div class="row">
+      
+      <div class="col-md-4 mb-4">
+        <div class="card p-4 shadow-sm">
+          <h5 class="mb-3 text-primary"><i class="bi bi-plus-circle"></i> เพิ่มวัสดุใหม่</h5>
+          <form id="stockForm">
+            <label class="small mt-2">ชื่อวัสดุ/สารเคมี</label>
+            <input type="text" name="name" class="form-control" required>
+            
+            <label class="small mt-2">ขนาด (Size/Specification)</label>
+            <input type="text" name="size" class="form-control" placeholder="เช่น 500ml, XL, 10x10cm">
+            
+            <label class="small mt-2">หมวดหมู่</label>
+            <select name="category" class="form-select">
+              <option>วัสดุกลาง</option>
+              <option>น้ำยาวิชา Blood bank</option>
+              <option>น้ำยาวิชา Hematology</option>
+              <option>น้ำยาวิชา Immunology</option>
+            </select>
+            
+            <div class="row">
+              <div class="col-6">
+                <label class="small mt-2">จำนวน</label>
+                <input type="number" name="qty" class="form-control" required>
+              </div>
+              <div class="col-6">
+                <label class="small mt-2">หน่วย</label>
+                <input type="text" name="unit" class="form-control" placeholder="ml/ขวด">
+              </div>
+            </div>
+            
+            <label class="small mt-2">วันหมดอายุ</label>
+            <input type="date" name="expiry" class="form-control">
+            
+            <label class="small mt-2">รูปภาพ</label>
+            <input type="file" name="imageFile" id="imageFile" class="form-control" accept="image/*">
+            
+            <button type="button" onclick="submitForm()" id="btnSave" class="btn btn-success w-100 mt-4 shadow-sm">บันทึกลงฐานข้อมูล</button>
+          </form>
+        </div>
+      </div>
+
+      <div class="col-md-8">        
+        <div class="card p-4 shadow-sm mb-4">
+          <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+            <h5 class="mb-0"><i class="bi bi-list-stars text-primary"></i> รายการในคลังข้อมูล (Stock)</h5>
+            <div class="position-relative" style="max-width: 250px; width: 100%;">
+              <span class="position-absolute top-50 start-0 translate-middle-y ps-2 text-muted">
+                <i class="bi bi-search"></i>
+              </span>
+              <input type="text" id="searchStock" class="form-control form-control-sm ps-5" placeholder="ค้นหารายการ/ขนาด...">
+            </div>
+          </div>
+          
+          <div class="table-responsive">
+            <table class="table table-hover align-middle">
+              <thead class="table-light">
+                <tr>
+                  <th style="width: 60px;">รูป</th>
+                  <th>รายการ/ขนาด</th>
+                  <th>คงเหลือ</th>
+                  <th>วันหมดอายุ</th>
+                  <th class="text-center">จัดการ</th>
+                </tr>
+              </thead>
+              <tbody id="dataTable"></tbody>
+            </table>
+          </div>
+
+          <div class="d-flex justify-content-between align-items-center mt-3 flex-wrap gap-2">
+            <div class="text-muted small" id="stockInfo">แสดง 0 ถึง 0 จากทั้งหมด 0 รายการ</div>
+            <nav>
+              <ul class="pagination pagination-sm mb-0" id="stockPagination"></ul>
+            </nav>
+          </div>
+        </div>
+
+        <div class="card p-4 shadow-sm">
+          <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+            <h5 class="mb-0 text-secondary"><i class="bi bi-clock-history"></i> ประวัติการเบิก-จ่าย ล่าสุด</h5>
+            <div class="position-relative" style="max-width: 250px; width: 100%;">
+              <span class="position-absolute top-50 start-0 translate-middle-y ps-2 text-muted">
+                <i class="bi bi-search"></i>
+              </span>
+              <input type="text" id="searchLogs" class="form-control form-control-sm ps-5" placeholder="ค้นหาประวัติ...">
+            </div>
+          </div>
+
+          <div class="table-responsive">
+            <table class="table table-sm table-hover align-middle">
+              <thead class="table-dark">
+                <tr>
+                  <th>วันที่-เวลา</th>
+                  <th>รายการ</th>
+                  <th>ประเภท</th>
+                  <th>จำนวน</th>
+                  <th>ผู้ทำรายการ</th>
+                </tr>
+              </thead>
+              <tbody id="logsTableBody"></tbody>
+            </table>
+          </div>
+
+          <div class="d-flex justify-content-between align-items-center mt-3 flex-wrap gap-2">
+            <div class="text-muted small" id="logsInfo">แสดง 0 ถึง 0 จากทั้งหมด 0 รายการ</div>
+            <nav>
+              <ul class="pagination pagination-sm mb-0" id="logsPagination"></ul>
+            </nav>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<script>
+// 🔑 ตั้งค่าคีย์เชื่อมต่อตรงไปยัง Supabase โปรเจกต์ของคุณ
+const SUPABASE_URL = "https://cqcnpuwpozqwmwgufxzn.supabase.co"; 
+const SUPABASE_ANON_KEY = "ใส่รหัส_ANON_KEY_ยาวๆ_ของคุณตรงนี้ครับ"; 
+
+const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+// ตัวแปรระบบค้นหาและแบ่งหน้าแสดงผล
+let masterStockData = []; 
+let masterLogsData = [];  
+let filteredStock = [];   
+let filteredLogs = [];    
+
+const rowsPerPage = 5;    
+let currentStockPage = 1;
+let currentLogsPage = 1;
+let currentUserName = "Admin"; // บันทึกชื่อผู้กดเบิกจ่ายขณะนั้น
+
+// --- [ฟังก์ชันแสดงผลตารางคลัง Materials] ---
+function renderStockTable() {
+  const startIndex = (currentStockPage
