@@ -182,6 +182,7 @@
     </div>
   </div>
 </div>
+
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
@@ -190,7 +191,7 @@
 const SUPABASE_URL = "https://cqcnpuwpozqwmwgufxzn.supabase.co"; 
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNxY25wdXdwb3pxd213Z3VmeHpuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA5ODMxNTgsImV4cCI6MjA5NjU1OTE1OH0.3A_C2Og_sxHHmgb4dIFsMjQHzrdCbtOKvVwgiuviB1c"; 
 
-const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const supabase = Supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 // ตัวแปรระบบค้นหาและแบ่งหน้าแสดงผล
 let masterStockData = []; 
@@ -205,7 +206,6 @@ let currentUserName = "Admin";
 
 // เมื่อหน้าเว็บโหลดเสร็จ
 $(document).ready(function() {
-    // ผูกระบบค้นหาแบบ Real-time เข้ากับช่องค้นหาบนหน้าเว็บ
     $('#searchStock').on('input', function() {
         const keyword = $(this).val().toLowerCase();
         filteredStock = masterStockData.filter(item => 
@@ -231,41 +231,47 @@ $(document).ready(function() {
 // 🔐 ฟังก์ชัน: เข้าสู่ระบบ (doLogin)
 // ==========================================
 async function doLogin() {
-    const username = $('#user').val().trim();
-    const password = $('#pass').val().trim();
+    const username = $('#user').val() ? $('#user').val().trim() : '';
+    const password = $('#pass').val() ? $('#pass').val().trim() : '';
 
-    if (!username || !password) {
+    if (username === '' || password === '') {
         Swal.fire('คำเตือน', 'กรุณากรอกชื่อผู้ใช้งานและรหัสผ่าน', 'warning');
         return;
     }
 
-    // แสดงสถานะกำลังโหลด
-    Swal.showLoading();
+    Swal.fire({
+        title: 'กำลังตรวจสอบข้อมูล...',
+        allowOutsideClick: false,
+        didOpen: () => { Swal.showLoading(); }
+    });
 
-    const { data: Users, error } = await supabase
-        .from('Users')
-        .select('*')
-        .eq('username', username)
-        .eq('password', password)
-        .single();
+    try {
+        const { data: Users, error } = await supabase
+            .from('Users')
+            .select('*')
+            .eq('username', username)
+            .eq('password', password)
+            .single();
 
-    Swal.close();
+        Swal.close();
 
-    if (error || !Users) {
-        Swal.fire('ล้มเหลว', 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง', 'error');
-    } else {
-        currentUserName = Users.name || username; 
-        $('#userNameDisplay').html(`<i class="bi bi-person-circle"></i> คุณ: ${currentUserName}`);
-        
-        // สลับหน้าจอซ่อนหน้า Login เปิดหน้าหลัก
-        $('#loginPage').addClass('hidden');
-        $('#mainPage').removeClass('hidden');
+        if (error || !Users) {
+            Swal.fire('ล้มเหลว', 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง', 'error');
+        } else {
+            currentUserName = Users.name || username; 
+            $('#userNameDisplay').html(`<i class="bi bi-person-circle"></i> คุณ: ${currentUserName}`);
+            
+            $('#loginPage').addClass('hidden');
+            $('#mainPage').removeClass('hidden');
 
-        Swal.fire('สำเร็จ', `ยินดีต้อนรับคุณ ${currentUserName}`, 'success');
-        
-        // เริ่มดึงข้อมูลมาแสดงผลในตาราง
-        loadStockData();
-        loadLogsData();
+            Swal.fire('สำเร็จ', `ยินดีต้อนรับคุณ ${currentUserName}`, 'success');
+            
+            loadStockData();
+            loadLogsData();
+        }
+    } catch (err) {
+        Swal.close();
+        Swal.fire('เกิดข้อผิดพลาด', 'ไม่สามารถเชื่อมต่อฐานข้อมูลได้', 'error');
     }
 }
 
@@ -360,7 +366,6 @@ function manageStock(id, itemName, currentQty, itemUnit) {
 
             Swal.showLoading();
 
-            // อัปเดตยอดคงเหลือในตาราง Materials
             const { error: updateError } = await supabase
                 .from('Materials')
                 .update({ qty: newQty })
@@ -371,7 +376,6 @@ function manageStock(id, itemName, currentQty, itemUnit) {
                 return;
             }
 
-            // บันทึกประวัติกิจกรรมลงตาราง Logs
             await supabase
                 .from('Logs')
                 .insert([
