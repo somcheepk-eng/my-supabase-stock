@@ -345,7 +345,8 @@ async function manageStock(id, itemName, currentQty, itemUnit, itemCategory) {
                 Swal.fire('ล้มเหลวในการอัปเดตสต็อก', updateError.message, 'error'); 
                 return; 
             }
-// 2. ✨ บันทึกประวัติลงตาราง Logs แบบระบุทางเลือกความปลอดภัยสูง (สยบ 400 Bad Request)
+
+            // 2. บันทึกประวัติลงตาราง Logs 
             const generatedLogID = "LOG-" + Date.now() + "-" + Math.floor(1000 + Math.random() * 9000);
             
             let safeUserName = "Unknown User";
@@ -355,7 +356,7 @@ async function manageStock(id, itemName, currentQty, itemUnit, itemCategory) {
                 safeUserName = currentUserName.name || currentUserName.username || JSON.stringify(currentUserName);
             }
 
-            // ส่งข้อมูลโดยการระบุส่วนหัว (Options) เพื่อบอก Supabase Client ว่าไม่ต้องพยายามสแกนหาคอลัมน์ id ดั้งเดิม
+            // ยิงข้อมูลเข้า Logs
             const { error: logError } = await supabaseConnection
                 .from('Logs')
                 .insert([
@@ -364,29 +365,31 @@ async function manageStock(id, itemName, currentQty, itemUnit, itemCategory) {
                         "Date": String(type),
                         "Item ID": String(id),
                         "Name": String(itemName),
-                        "Catgory": String(itemCategory),
+                        "Category": String(itemCategory), // ✨ แก้ไขจาก Catgory เป็น Category มีตัว e ตรงตามภาพล่าสุดแล้ว!
                         "Qty": parseInt(changeQty, 10),
                         "Unit": String(itemUnit),
                         "LogUser": String(safeUserName)
                     }
-                ], { defaultToNull: false }); // 🌟 บล็อกไม่ให้ส่งค่าแปลกปลอมที่ฐานข้อมูลไม่รู้จัก
+                ]);
 
             Swal.close();
 
             if (logError) {
                 console.error("Log Insert Error:", logError);
-                // 🌟 แปลงโครงสร้าง Object ออกมาเป็นข้อความให้อ่านออกทันทีถ้ายังติดขัด
+                // ดึงรายละเอียด Error จริงมาพิมพ์บอก
                 const detailedError = logError.message || JSON.stringify(logError);
                 Swal.fire('สต็อกอัปเดตแล้ว แต่บันทึกประวัติล้มเหลว', `สาเหตุ: ${detailedError}`, 'warning');
                 loadStockData();
                 return;
             }
 
-            // 🎉 สำเร็จแท้จริง ข้อมูลจะเข้าตารางหลังบ้านแล้วครับ
+            // 🎉 ความสำเร็จที่แท้จริง!
             Swal.fire('สำเร็จ', `ทำรายการ ${type} และบันทึกประวัติเรียบร้อยแล้ว`, 'success');
             loadStockData();
-            loadLogsData();
+            loadLogsData(); // รีโหลดตารางประวัติจากฐานข้อมูลจริงทันที
         }
+    });
+}
   
 async function submitForm() {
     const form = document.getElementById('stockForm');
