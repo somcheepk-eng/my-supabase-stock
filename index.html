@@ -328,68 +328,68 @@ async function manageStock(id, itemName, currentQty, itemUnit, itemCategory) {
 
             Swal.fire({ title: 'กำลังบันทึกข้อมูล...', allowOutsideClick: false, didOpen: () => { Swal.showLoading(); } });
 
-            try {
-                // 1. อัปเดตยอดคงเหลือในตาราง Materials
-                const sampleItem = masterStockData[0] || {};
-                const dbIDCol = Object.keys(sampleItem).find(k => k.toLowerCase() === 'id') || 'id';
-                const dbQtyCol = Object.keys(sampleItem).find(k => k.toLowerCase() === 'qty') || 'Qty';
+            // 1. อัปเดตยอดคงเหลือในตาราง Materials
+            const sampleItem = masterStockData[0] || {};
+            const dbIDCol = Object.keys(sampleItem).find(k => k.toLowerCase() === 'id') || 'id';
+            const dbQtyCol = Object.keys(sampleItem).find(k => k.toLowerCase() === 'qty') || 'Qty';
 
-                let updatePayload = {};
-                updatePayload[dbQtyCol] = newQty;
+            let updatePayload = {};
+            updatePayload[dbQtyCol] = newQty;
 
-                const { error: updateError } = await supabaseConnection
-                    .from('Materials')
-                    .update(updatePayload)
-                    .eq(dbIDCol, id);
-                    
-                if (updateError) { 
-                    Swal.fire('ล้มเหลวในการอัปเดตสต็อก', updateError.message, 'error'); 
-                    return; 
-                }
-
-                // 2. ✨ บันทึกประวัติลงตาราง Logs แบบถอดรหัสโครงสร้างตารางจริง (ป้องกันชื่อคอลัมน์เพี้ยน)
-                const generatedLogID = "LOG-" + Date.now() + "-" + Math.floor(1000 + Math.random() * 9000);
+            const { error: updateError } = await supabaseConnection
+                .from('Materials')
+                .update(updatePayload)
+                .eq(dbIDCol, id);
                 
-                // ดึงข้อมูลแถวแรกของตาราง Logs มาดักหาชื่อคอลัมน์ที่ถูกต้อง (กรณีที่ในตารางมีข้อมูลอยู่แล้ว)
-                // หรือจะส่งค่าแบบ Hardcode คอลัมน์ที่ตรงตามรูปภาพที่คุณส่งมาแป๊ะๆ
-                const logPayload = {
-                    "Log ID": String(generatedLogID),
-                    "Date": String(type),
-                    "Item ID": String(id),
-                    "Name": String(itemName),
-                    "Catgory": String(itemCategory), // มั่นใจว่าตรงตามรูปคอลัมน์ที่ 5 ของคุณ
-                    "Qty": parseInt(changeQty, 10),
-                    "Unit": String(itemUnit),
-                    "LogUser": String(currentUserName)
-                };
-
-                const { data: logCheck, error: logError } = await supabaseConnection
-                    .from('Logs')
-                    .insert([logPayload])
-                    .select(); // บังคับคืนค่าตรวจสอบ
-
-                Swal.close();
-
-                if (logError) {
-                    console.error("Log Insert Error Detail:", logError);
-                    // เด้ง Error บอกเหตุผลแบบละเอียดว่าคอลัมน์ไหนทำพัง
-                    Swal.fire('ตัดสต็อกสำเร็จ แต่ตารางหลังบ้านไม่รับประวัติ', `ฟ้องว่า: ${logError.message}\n(Code: ${logError.code})`, 'warning');
-                    loadStockData();
-                    return;
-                }
-
-                // 🎉 ความสำเร็จที่แท้จริง
-                Swal.fire('สำเร็จ', `บันทึกข้อมูลและอัปเดตประวัติเข้าเซิร์ฟเวอร์สำเร็จ!`, 'success');
-                loadStockData();
-                loadLogsData(); // โหลดประวัติสดใหม่จากเบสจริงมาแสดงแทนการใช้แถวจำลอง
-
-            } catch (err) {
-                Swal.close();
-                Swal.fire('ระบบภายในขัดข้อง', err.message, 'error');
+            if (updateError) { 
+                Swal.fire('ล้มเหลวในการอัปเดตสต็อก', updateError.message, 'error'); 
+                return; 
             }
+
+            // 2. ✨ บันทึกประวัติลงตาราง Logs แบบปลอดภัยสูงสุด (เคลียร์ปัญหา Status 400)
+            const generatedLogID = "LOG-" + Date.now() + "-" + Math.floor(1000 + Math.random() * 9000);
+            
+            // ดักจับชื่อผู้ใช้งานให้เป็น String เพียวๆ ป้องกันการส่งค่า Object หลุดไปที่ LogUser
+            let safeUserName = "Unknown User";
+            if (typeof currentUserName === 'string') {
+                safeUserName = currentUserName;
+            } else if (currentUserName && typeof currentUserName === 'object') {
+                safeUserName = currentUserName.name || currentUserName.username || JSON.stringify(currentUserName);
+            }
+
+            // ยิงข้อมูลแบบเรียบง่าย ไม่ใช้คำสั่ง .select() เพื่อลดข้อจำกัดเรื่อง Primary Key ของ Supabase Client
+            const { error: logError } = await supabaseConnection
+                .from('Logs')
+                .insert([
+                    {
+                        "Log ID": String(generatedLogID),
+                        "Date": String(type),
+                        "Item ID": String(id),
+                        "Name": String(itemName),
+                        "Catgory": String(itemCategory),
+                        "Qty": parseInt(changeQty, 10),
+                        "Unit": String(itemUnit),
+                        "LogUser": String(safeUserName) // 👈 ล็อกให้เป็นข้อความ text เคลียร์ปัญหาสุดท้ายใน URL
+                    }
+                ]);
+
+            Swal.close();
+
+            if (logError) {
+                console.error("Log Insert Error:", logError);
+                Swal.fire('สต็อกอัปเดตแล้ว แต่บันทึกประวัติล้มเหลว', logError.message, 'warning');
+                loadStockData();
+                return;
+            }
+
+            // 🎉 สำเร็จแท้จริง ข้อมูลจะเข้าตารางหลังบ้านแล้วครับ
+            Swal.fire('สำเร็จ', `ทำรายการ ${type} และบันทึกประวัติเรียบร้อยแล้ว`, 'success');
+            loadStockData();
+            loadLogsData(); // โหลดข้อมูลสดๆ มาแสดงผลบนตารางหน้าเว็บ
         }
     });
 }
+  
 async function submitForm() {
     const form = document.getElementById('stockForm');
     const name = form.name.value.trim();
