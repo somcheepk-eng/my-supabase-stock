@@ -62,14 +62,15 @@ async function loginProcess(username, password) {
         .select('*')
         .eq('username', username)
         .eq('password', password)
-        .single(); // ดึงมาแค่แถวเดียวที่ตรงกัน
+        .single(); 
 
     if (error || !Users) {
         Swal.fire('ล้มเหลว', 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง', 'error');
         return false;
     } else {
-        currentUserName = Users.name; // เก็บชื่อผู้ใช้ที่ล็อกอินสำเร็จไว้บันทึกประวัติ
-        Swal.fire('สำเร็จ', `ยินดีต้อนรับคุณ ${Users.name}`, 'success');
+        //  แก้ไข: เปลี่ยนจาก Users.name เป็น Users.fullname ให้ตรงกับหน้าตาราง Supabase
+        currentUserName = Users.fullname || username; 
+        Swal.fire('สำเร็จ', `ยินดีต้อนรับคุณ ${currentUserName}`, 'success');
         return true;
     }
 }
