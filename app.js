@@ -30,8 +30,8 @@ $(document).ready(function() {
     $('#searchLogs').on('input', function() {
         const keyword = $(this).val().toLowerCase();
         filteredLogs = masterLogsData.filter(log => 
-            (log.item_name && log.item_name.toLowerCase().includes(keyword)) ||
-            (log.user && log.user.toLowerCase().includes(keyword))
+            (log.Name && log.Name.toLowerCase().includes(keyword)) ||
+            (log.LogUser && log.LogUser.toLowerCase().includes(keyword))
         );
         currentLogsPage = 1;
         renderLogsTable();
@@ -73,6 +73,7 @@ async function doLogin() {
 // ==========================================
 async function loginProcess(username, password) {
     try {
+        // ตาราง Users ของคุณเป็นตัวพิมพ์เล็กทั้งหมดตามรูปภาพ
         const { data: Users, error } = await supabase
             .from('Users')
             .select('*')
@@ -84,6 +85,7 @@ async function loginProcess(username, password) {
             Swal.fire('ล้มเหลว', 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง', 'error');
             return false;
         } else {
+            // ใช้ fullname ตัวพิมพ์เล็กตามตารางจริงของคุณ
             currentUserName = Users.fullname || username; 
             Swal.fire('สำเร็จ', `ยินดีต้อนรับคุณ ${currentUserName}`, 'success');
             return true;
@@ -103,7 +105,7 @@ async function loadStockData() {
     const { data: Materials, error } = await supabase
         .from('Materials')
         .select('*')
-        .order('Name', { ascending: true }); // แก้เป็น Name ตัวใหญ่
+        .order('Name', { ascending: true });
 
     if (error) {
         $('#dataTable').html(`<tr><td colspan="5" class="text-center text-danger">เกิดข้อผิดพลาด: ${error.message}</td></tr>`);
@@ -125,7 +127,6 @@ function renderStockTable() {
         html = '<tr><td colspan="5" class="text-center text-muted">ไม่พบข้อมูลรายการคลัง</td></tr>';
     } else {
         pageData.forEach(row => {
-            // ปรับแก้ตัวแปรให้ขึ้นต้นด้วยตัวพิมพ์ใหญ่ตามตารางจริงใน Supabase
             let imgDisplay = row.Img_url ? row.Img_url : 'https://via.placeholder.com/40?text=No';
             html += `
             <tr style="vertical-align: middle;">
@@ -138,7 +139,7 @@ function renderStockTable() {
                 <td><span class="badge-qty">${row.Qty || 0} ${row.Unit || 'หน่วย'}</span></td>
                 <td><span class="badge bg-light text-dark">${row.Expire_date || '-'}</span></td>
                 <td class="text-center">
-                    <button class="btn btn-sm btn-outline-warning" onclick="manageStock('${row.ID}', '${row.Name}', ${row.Qty}, '${row.Unit}')">เบิก/รับ</button>
+                    <button class="btn btn-sm btn-outline-warning" onclick="manageStock('${row.ID}', '${row.Name}', ${row.Qty}, '${row.Unit}', '${row.Category || 'วัสดุกลาง'}')">เบิก/รับ</button>
                     <button class="btn btn-sm btn-outline-danger" onclick="deleteItem('${row.ID}')"><i class="bi bi-trash"></i></button>
                 </td>
             </tr>`;
@@ -152,7 +153,7 @@ function renderStockTable() {
 // ==========================================
 // 📈 ฟังก์ชัน: เบิก/รับสต็อก + บันทึกประวัติลง Logs
 // ==========================================
-function manageStock(id, itemName, currentQty, itemUnit) {
+function manageStock(id, itemName, currentQty, itemUnit, itemCategory) {
     Swal.fire({
         title: `จัดการสต็อก: ${itemName}`,
         html: `
@@ -188,24 +189,26 @@ function manageStock(id, itemName, currentQty, itemUnit) {
 
             const { error: updateError } = await supabase
                 .from('Materials')
-                .update({ Qty: newQty }) // แก้เป็น Qty ตัวใหญ่
-                .eq('ID', id); // แก้เป็น ID ตัวใหญ่
+                .update({ Qty: newQty }) 
+                .eq('ID', id); 
 
             if (updateError) {
                 Swal.fire('ล้มเหลว', updateError.message, 'error');
                 return;
             }
 
+            // ⚠️ ปรับแก้ให้ตรงตาราง Logs ของคุณเป๊ะๆ (มีคอลัมน์ชื่อ Catgory สะกดแบบนี้ตามรูปภาพ)
             await supabase
                 .from('Logs')
                 .insert([
                     { 
-                        material_id: id, 
-                        item_name: itemName, 
-                        type: type, 
-                        change_qty: changeQty, 
-                        unit: itemUnit, 
-                        user: currentUserName 
+                        "Item ID": id, 
+                        Name: itemName, 
+                        Date: type, // บันทึกประเภทในช่อง Date ตามสไตล์เดิม หรือคุณเปลี่ยนทีหลังได้
+                        Catgory: itemCategory, 
+                        Qty: changeQty, 
+                        Unit: itemUnit, 
+                        LogUser: currentUserName 
                     }
                 ]);
 
@@ -236,7 +239,6 @@ async function submitForm() {
     Swal.showLoading();
     let imageUrl = ""; 
 
-    // แก้โครงสร้างฝั่ง Key ให้เป็นตัวพิมพ์ใหญ่ตามตารางจริงใน Supabase
     const { error } = await supabase
         .from('Materials')
         .insert([{ Name: name, Size: size, Category: category, Qty: qty, Unit: unit, Expire_date: expiry, Status: "ปกติ", Img_url: imageUrl }]);
@@ -256,8 +258,7 @@ async function submitForm() {
 async function loadLogsData() {
     const { data: Logs, error } = await supabase
         .from('Logs')
-        .select('*')
-        .order('created_at', { ascending: false });
+        .select('*'); // ดึงปกติเนื่องจากคอลัมน์ของคุณไม่มี created_at
 
     if (!error && Logs) {
         masterLogsData = Logs;
@@ -276,15 +277,13 @@ function renderLogsTable() {
         html = '<tr><td colspan="5" class="text-center text-muted">ไม่พบข้อมูลประวัติการทำรายการ</td></tr>';
     } else {
         pageData.forEach(row => {
-            let dateStr = row.created_at ? new Date(row.created_at).toLocaleString('th-TH') : '-';
-            let badgeColor = row.type === 'รับเข้า' ? 'bg-success' : 'bg-danger';
             html += `
             <tr>
-                <td><small>${dateStr}</small></td>
-                <td><b>${row.item_name}</b></td>
-                <td><span class="badge ${badgeColor}">${row.type}</span></td>
-                <td><b>${row.change_qty}</b> ${row.unit || ''}</td>
-                <td><span class="text-muted"><i class="bi bi-person"></i> ${row.user}</span></td>
+                <td><small>${row.Date || '-'}</small></td>
+                <td><b>${row.Name || '-'}</b></td>
+                <td><span class="badge bg-secondary">${row.Catgory || '-'}</span></td>
+                <td><b>${row.Qty || 0}</b> ${row.Unit || ''}</td>
+                <td><span class="text-muted"><i class="bi bi-person"></i> ${row.LogUser || '-'}</span></td>
             </tr>`;
         });
     }
@@ -308,7 +307,7 @@ async function deleteItem(id) {
     }).then(async (result) => {
         if (result.isConfirmed) {
             Swal.showLoading();
-            const { error } = await supabase.from('Materials').delete().eq('ID', id); // แก้เป็น ID ตัวใหญ่
+            const { error } = await supabase.from('Materials').delete().eq('ID', id); 
 
             if (error) {
                 Swal.fire('ล้มเหลว', error.message, 'error');
