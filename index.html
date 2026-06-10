@@ -341,30 +341,37 @@ async function manageStock(id, itemName, currentQty, itemUnit, itemCategory) {
                 .update(updatePayload)
                 .eq(dbIDCol, id);
                 
-            if (updateError) { Swal.fire('ล้มเหลว', updateError.message, 'error'); return; }
+            if (updateError) { Swal.fire('ล้มเหลวในการอัปเดตสต็อก', updateError.message, 'error'); return; }
 
-            // 2. ✨ บันทึกประวัติลงตาราง Logs (แก้ปัญหาส่ง Log ID ดักค่า NULL)
-            // สร้างเลข Log ID จากวันเวลาปัจจุบันร่วมกับสุ่มตัวเลข เพื่อให้ได้ข้อความที่ไม่ซ้ำกันและเรียงตามเวลาได้
+            // 2. ✨ บันทึกประวัติลงตาราง Logs (แปลงค่า Qty ให้เป็น Integer แน่นอน 100%)
             const generatedLogID = "LOG-" + Date.now() + "-" + Math.floor(Math.random() * 1000);
 
             const logPayload = { 
-                "Log ID": generatedLogID, // 👈 ส่งคอลัมน์ชื่อตรงตามในตารางจริงของคุณ
+                "Log ID": generatedLogID,
                 "Date": type, 
-                "Item ID": id, 
+                "Item ID": String(id), // แปลงเป็นข้อความเผื่อคอลัมน์ในตาราง Logs เป็น text
                 "Name": itemName, 
                 "Catgory": itemCategory, 
-                "Qty": changeQty, 
+                "Qty": parseInt(changeQty, 10), // 👈 บังคับให้เป็นตัวเลข int8 ตรงตามโครงสร้างฐานข้อมูลแน่นอน
                 "Unit": itemUnit, 
                 "LogUser": currentUserName 
             };
             
-            // ยิงข้อมูลเข้าสู่ตาราง Logs บน Supabase
-            await supabaseConnection.from('Logs').insert([logPayload]);
+            // ยิงข้อมูลเข้าสู่ตาราง Logs บน Supabase พร้อมเช็คเออเรอร์
+            const { error: logError } = await supabaseConnection.from('Logs').insert([logPayload]);
             
-            Swal.fire('สำเร็จ', `อัปเดตสต็อกสำเร็จ คงเหลือ: ${newQty} ${itemUnit}`, 'success');
+            // 🚨 ถ้าเกิดเหตุการณ์บันทึกประวัติหลังบ้านไม่สำเร็จ ให้แจ้งเตือนทันที! จะได้รู้สาเหตุ
+            if (logError) {
+                console.error("Log Insert Error:", logError);
+                Swal.fire('อัปเดตสต็อกสำเร็จ แต่บันทึกประวัติล้มเหลว', logError.message, 'warning');
+                loadStockData();
+                return;
+            }
+            
+            Swal.fire('สำเร็จ', `อัปเดตสต็อกและบันทึกประวัติสำเร็จ คงเหลือ: ${newQty} ${itemUnit}`, 'success');
             loadStockData(); 
 
-            // 3. ✨ ดันแถวประวัติใหม่ขึ้นโชว์บนหน้าเว็บแบบ Real-time ทันที
+            // 3. แสดงผลบนหน้าเว็บ Real-time
             let newRowHtml = `<tr>
                 <td><span class="badge ${type === 'เบิกออก' ? 'bg-danger' : 'bg-success'}">${type}</span></td>
                 <td><b>${itemName}</b></td>
@@ -376,7 +383,7 @@ async function manageStock(id, itemName, currentQty, itemUnit, itemCategory) {
             if ($('#logsTableBody').html().includes('ไม่พบข้อมูลประวัติ')) {
                 $('#logsTableBody').html('');
             }
-            $('#logsTableBody').prepend(newRowHtml); // เอาประวัติล่าสุดแปะไว้บนสุด
+            $('#logsTableBody').prepend(newRowHtml);
         }
     });
 }
