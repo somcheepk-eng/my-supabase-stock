@@ -181,8 +181,9 @@ async function doLogin() {
     try {
         // 🌟 1. ดึงข้อมูลผู้ใช้งานทั้งหมดในตารางมาพักไว้ในเว็บก่อน (เลี่ยงปัญหา .eq เอ๋อ)
         const { data: allUsers, error } = await supabaseConnection
-            .from('Users')
-            .select('*');
+    .from('Users')
+    // 🌟 ระบุชื่อคอลัมน์ที่เราจะใช้ตรง ๆ (ใส่ไปทั้งตัวเล็กตัวใหญ่เพื่อความปลอดภัย)
+    .select('username, password, fullname, Username, Password, Fullname');
 
         Swal.close(); 
 
