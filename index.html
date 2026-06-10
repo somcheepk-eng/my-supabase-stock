@@ -328,7 +328,7 @@ async function manageStock(id, itemName, currentQty, itemUnit, itemCategory) {
 
             Swal.showLoading();
 
-            // 🛠️ ตรวจสอบชื่อคอลัมน์จริงของ ID และ Qty ในตาราง Materials ป้องกันการ Error
+            // 1. อัปเดตยอดคงเหลือในตาราง Materials
             const sampleItem = masterStockData[0] || {};
             const dbIDCol = Object.keys(sampleItem).find(k => k.toLowerCase() === 'id') || 'id';
             const dbQtyCol = Object.keys(sampleItem).find(k => k.toLowerCase() === 'qty') || 'Qty';
@@ -343,17 +343,43 @@ async function manageStock(id, itemName, currentQty, itemUnit, itemCategory) {
                 
             if (updateError) { Swal.fire('ล้มเหลว', updateError.message, 'error'); return; }
 
-            // ดึงโครงสร้างตาราง Logs มาช่วยเช็คชื่อคอลัมน์แปรผัน
-            const logPayload = { "Item ID": id, Name: itemName, Date: type, Catgory: itemCategory, Qty: changeQty, Unit: itemUnit, LogUser: currentUserName };
+            // 2. ✨ บันทึกประวัติลงตาราง Logs (แก้ปัญหาส่ง Log ID ดักค่า NULL)
+            // สร้างเลข Log ID จากวันเวลาปัจจุบันร่วมกับสุ่มตัวเลข เพื่อให้ได้ข้อความที่ไม่ซ้ำกันและเรียงตามเวลาได้
+            const generatedLogID = "LOG-" + Date.now() + "-" + Math.floor(Math.random() * 1000);
+
+            const logPayload = { 
+                "Log ID": generatedLogID, // 👈 ส่งคอลัมน์ชื่อตรงตามในตารางจริงของคุณ
+                "Date": type, 
+                "Item ID": id, 
+                "Name": itemName, 
+                "Catgory": itemCategory, 
+                "Qty": changeQty, 
+                "Unit": itemUnit, 
+                "LogUser": currentUserName 
+            };
+            
+            // ยิงข้อมูลเข้าสู่ตาราง Logs บน Supabase
             await supabaseConnection.from('Logs').insert([logPayload]);
             
             Swal.fire('สำเร็จ', `อัปเดตสต็อกสำเร็จ คงเหลือ: ${newQty} ${itemUnit}`, 'success');
-            loadStockData();
-            loadLogsData();
+            loadStockData(); 
+
+            // 3. ✨ ดันแถวประวัติใหม่ขึ้นโชว์บนหน้าเว็บแบบ Real-time ทันที
+            let newRowHtml = `<tr>
+                <td><span class="badge ${type === 'เบิกออก' ? 'bg-danger' : 'bg-success'}">${type}</span></td>
+                <td><b>${itemName}</b></td>
+                <td>${itemCategory}</td>
+                <td><b>${changeQty}</b> ${itemUnit}</td>
+                <td><small class="text-muted">${currentUserName}</small></td>
+            </tr>`;
+            
+            if ($('#logsTableBody').html().includes('ไม่พบข้อมูลประวัติ')) {
+                $('#logsTableBody').html('');
+            }
+            $('#logsTableBody').prepend(newRowHtml); // เอาประวัติล่าสุดแปะไว้บนสุด
         }
     });
 }
-
 async function submitForm() {
     const form = document.getElementById('stockForm');
     const name = form.name.value.trim();
@@ -419,38 +445,28 @@ async function submitForm() {
     }
 }
 async function loadLogsData() {
-    // ✨ แก้ไขจุดนี้: สั่งให้ Supabase เรียงลำดับเอาข้อมูลใหม่ล่าสุดขึ้นก่อน (ตามเวลา created_at) ตั้งแต่ต้นทาง
-    const { data: Logs, error } = await supabaseConnection
-        .from('Logs')
-        .select('*')
-        .order('created_at', { ascending: false }); // ascending: false คือเอาใหม่ล่าสุดขึ้นก่อน
-
-    if (error) {
-        console.error("Logs Error:", error.message);
-        $('#logsTableBody').html('<tr><td colspan="5" class="text-center text-danger">ไม่สามารถโหลดประวัติได้</td></tr>');
-        return;
-    }
-
-    if (Logs) {
+    // ดึงประวัติทั้งหมดจากตาราง Logs
+    const { data: Logs, error } = await supabaseConnection.from('Logs').select('*');
+    
+    if (!error && Logs) {
         let html = '';
         if (Logs.length === 0) { 
             html = '<tr><td colspan="5" class="text-center text-muted">ไม่พบข้อมูลประวัติ</td></tr>'; 
         } else {
-            // ไม่ต้องเขียนโค้ด .sort() ฝั่งนี้ให้งงและเสี่ยงพังอีกต่อไป เพราะดึงมาแบบเรียงดีแล้วครับ
-            Logs.forEach(row => {
-                const dateKey = Object.keys(row).find(k => k.toLowerCase() === 'date');
-                const nameKey = Object.keys(row).find(k => k.toLowerCase() === 'name');
-                const catKey = Object.keys(row).find(k => k.toLowerCase() === 'catgory' || k.toLowerCase() === 'category');
-                const qtyKey = Object.keys(row).find(k => k.toLowerCase() === 'qty');
-                const unitKey = Object.keys(row).find(k => k.toLowerCase() === 'unit');
-                const userKey = Object.keys(row).find(k => k.toLowerCase() === 'loguser');
+            // ✨ เรียงลำดับเอาตัวที่เพิ่งบันทึก (ชื่อ Log-ID ที่มีค่า Timestamp มากกว่า) ขึ้นก่อน
+            const sortedLogs = Logs.sort((a, b) => {
+                const aKey = a["Log ID"] || "";
+                const bKey = b["Log ID"] || "";
+                return bKey.localeCompare(aKey); // เรียงจากข้อความใหม่ไปเก่า
+            });
 
-                let action = dateKey ? row[dateKey] : '-';
-                let itemLogName = nameKey ? row[nameKey] : '-';
-                let itemLogCat = catKey ? row[catKey] : '-';
-                let itemLogQty = qtyKey ? row[qtyKey] : 0;
-                let itemLogUnit = unitKey ? row[unitKey] : '';
-                let itemLogUser = userKey ? row[userKey] : '-';
+            sortedLogs.forEach(row => {
+                let action = row["Date"] || '-';
+                let itemLogName = row["Name"] || '-';
+                let itemLogCat = row["Catgory"] || '-';
+                let itemLogQty = row["Qty"] || 0;
+                let itemLogUnit = row["Unit"] || '';
+                let itemLogUser = row["LogUser"] || '-';
 
                 html += `<tr>
                     <td><span class="badge ${action === 'เบิกออก' ? 'bg-danger' : 'bg-success'}">${action}</span></td>
