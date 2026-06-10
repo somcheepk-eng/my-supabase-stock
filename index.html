@@ -357,19 +357,23 @@ async function manageStock(id, itemName, currentQty, itemUnit, itemCategory) {
             }
 
             // ยิงข้อมูลเข้าสู่โครงสร้างตารางใหม่
-            const { error: logError } = await supabaseConnection
-                .from('Logs')
-                .insert([
-                    {
-                        "LogID": String(generatedLogID),
-                        "Date": String(type),
-                        "ItemID": String(id),
-                        "Name": String(itemName),
-                        "Category": String(itemCategory),
-                        "Qty": parseInt(changeQty, 10),
-                        "Unit": String(itemUnit),
-                        "LogUser": String(safeUserName)
-                    }
+            // ดึงวันที่และเวลาปัจจุบันในฟอร์แมตภาษาไทย (เช่น 10/06/2026 14:30:00)
+              const currentDateTime = new Date().toLocaleString('th-TH');
+              
+              const { error: logError } = await supabaseConnection
+                  .from('Logs')
+                  .insert([
+                      {
+                          "LogID": String(generatedLogID),
+                          "Date": String(currentDateTime), // 📅 คราวนี้ Date จะเป็นวันที่จริงๆ แล้ว!
+                          "Action": String(type),          // 🔄 เก็บ "รับเข้า" หรือ "เบิกออก" ในคอลลัมน์ใหม่
+                          "ItemID": String(id),
+                          "Name": String(itemName),
+                          "Category": String(itemCategory),
+                          "Qty": parseInt(changeQty, 10),
+                          "Unit": String(itemUnit),
+                          "LogUser": String(safeUserName)
+                      }
                 ]);
 
             Swal.close();
