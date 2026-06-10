@@ -349,7 +349,14 @@ async function manageStock(id, itemName, currentQty, itemUnit, itemCategory) {
 
             // บันทึกเข้าตารางใหม่ชื่อ History (แก้ปัญหาระบบเครือข่ายสกัดกั้น)
             const generatedLogID = "LOG-" + Date.now() + "-" + Math.floor(1000 + Math.random() * 9000);
-            const currentDateTime = new Date().toLocaleString('th-TH');
+            // --- โค้ดสร้างวันที่ฟอร์แมตไทยแท้ (พ.ศ.) แบบไม่มีเวลา ---
+              const now = new Date();
+              const day = String(now.getDate()).padStart(2, '0');
+              const month = String(now.getMonth() + 1).padStart(2, '0');
+              const yearBE = now.getFullYear() + 543; // เปลี่ยน ค.ศ. เป็น พ.ศ.
+              
+              // ผลลัพธ์ที่ได้จะเป็น: "10/06/2569" 
+              const currentDateTime = `${day}/${month}/${yearBE}`;
 
             let safeUserName = "Unknown User";
             if (typeof currentUserName === 'string') { safeUserName = currentUserName; }
