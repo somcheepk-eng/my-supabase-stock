@@ -247,19 +247,30 @@ function renderStockTable() {
     } else {
         pageData.forEach(row => {
             let imgDisplay = row.Img_url ? row.Img_url : 'https://via.placeholder.com/40?text=No';
-            let itemID = row.ID;
+            
+            // 🛠️ ระบบดักจับตัวแปรเพื่อความปลอดภัย (พิมพ์เล็ก-พิมพ์ใหญ่ไม่มีพัง)
+            let itemID = row.ID || row.id || ''; 
+            let itemName = row.Name || row.name || '-';
+            let itemQty = row.Qty !== undefined && row.Qty !== null ? row.Qty : (row.qty || 0);
+            let itemUnit = row.Unit || row.unit || 'หน่วย';
+            let itemCategory = row.Category || row.category || 'วัสดุกลาง';
+            let itemExpire = row.Expire_date || row.expire_date || '-';
+
+            // ดักจับเครื่องหมาย Single Quote (') ในชื่อวัสดุเพื่อไม่ให้ HTML เอ๋อตอนส่งค่าเข้าฟังก์ชัน
+            let safeName = itemName.replace(/'/g, "\\'");
+
             html += `
             <tr style="vertical-align: middle;">
                 <td><img src="${imgDisplay}" class="stock-item-icon"></td>
                 <td>
-                    <div class="fw-bold text-dark">${row.Name || '-'}</div>
-                    <div class="text-primary small fw-bold">ขนาด: ${row.Size || '-'}</div>
-                    <div class="text-muted small">หมวดหมู่: ${row.Category || 'วัสดุกลาง'}</div>
+                    <div class="fw-bold text-dark">${itemName}</div>
+                    <div class="text-primary small fw-bold">ขนาด: ${row.Size || row.size || '-'}</div>
+                    <div class="text-muted small">หมวดหมู่: ${itemCategory}</div>
                 </td>
-                <td><span class="badge-qty">${row.Qty || 0} ${row.Unit || 'หน่วย'}</span></td>
-                <td><span class="badge bg-light text-dark">${row.Expire_date || '-'}</span></td>
+                <td><span class="badge-qty">${itemQty} ${itemUnit}</span></td>
+                <td><span class="badge bg-light text-dark">${itemExpire}</span></td>
                 <td class="text-center">
-                    <button class="btn btn-sm btn-outline-warning" onclick="manageStock('${itemID}', '${row.Name}', ${row.Qty}, '${row.Unit}', '${row.Category || 'วัสดุกลาง'}')">เบิก/รับ</button>
+                    <button class="btn btn-sm btn-outline-warning" onclick="manageStock('${itemID}', '${safeName}', ${itemQty}, '${itemUnit}', '${itemCategory}')">เบิก/รับ</button>
                     <button class="btn btn-sm btn-outline-danger" onclick="deleteItem('${itemID}')"><i class="bi bi-trash"></i></button>
                 </td>
             </tr>`;
@@ -269,7 +280,7 @@ function renderStockTable() {
     $('#stockInfo').text(`แสดง ${filteredStock.length ? startIndex + 1 : 0} ถึง ${endIndex} จากทั้งหมด ${filteredStock.length} รายการ`);
     renderPagination('stockPagination', filteredStock.length, currentStockPage, (p) => { currentStockPage = p; renderStockTable(); });
 }
-
+  
 function manageStock(id, itemName, currentQty, itemUnit, itemCategory) {
     Swal.fire({
         title: `จัดการสต็อก: ${itemName}`,
