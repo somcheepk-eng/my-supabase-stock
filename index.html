@@ -11,7 +11,7 @@
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
   <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
 
-  <style>
+ <style>
     :root { --primary-color: #2c3e50; }
     body { background: #f4f7f6; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
     .navbar { background: var(--primary-color) !important; color: white; }
@@ -19,6 +19,24 @@
     .hidden { display: none !important; }
     .stock-item-icon { width: 40px; height: 40px; object-fit: cover; border-radius: 8px; border: 1px solid #ddd; }
     .badge-qty { background-color: #e8f0fe; color: #1a73e8; padding: 0.4rem 0.6rem; border-radius: 6px; font-weight: bold; }
+
+    /* 🛠️ ส่วนที่เพิ่มใหม่: บังคับหน้าจอให้แบ่ง ซ้าย-ขวา แบบแมนนวล ไม่พึ่ง Bootstrap */
+    @media (min-width: 768px) {
+      .row {
+        display: flex !important;
+        flex-wrap: wrap !important;
+      }
+      .col-md-4 {
+        flex: 0 0 33.333333% !important;
+        max-width: 33.333333% !important;
+        width: 33.333333% !important;
+      }
+      .col-md-8 {
+        flex: 0 0 66.666667% !important;
+        max-width: 66.666667% !important;
+        width: 66.666667% !important;
+      }
+    }
   </style>
 </head>
 <body> <div id="loginPage" class="container mt-5">
