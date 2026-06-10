@@ -144,6 +144,7 @@
 </div>
 
 <script>
+// 🔑 ตัวแปรเชื่อมต่อ Supabase หลัก
 const clientUrl = "https://cqcnpuwpozqwmwgufxzn.supabase.co"; 
 const clientKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNxY25wdXdwb3pxd213Z3VmeHpuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA5ODMxNTgsImV4cCI6MjA5NjU1OTE1OH0.3A_C2Og_sxHHmgb4dIFsMjQHzrdCbtOKvVwgiuviB1c"; 
 
@@ -167,6 +168,7 @@ $(document).ready(function() {
     });
 });
 
+// 🔐 ฟังก์ชันล็อกอินเวอร์ชันเสถียรที่สุด (ตัดปัญหาเรื่องไม่มี ID ทิ้งทั้งหมด)
 async function doLogin() {
     const username = $('#user').val() ? $('#user').val().trim() : '';
     const password = $('#pass').val() ? $('#pass').val().trim() : '';
@@ -179,49 +181,44 @@ async function doLogin() {
     Swal.fire({ title: 'กำลังตรวจสอบข้อมูล...', allowOutsideClick: false, didOpen: () => { Swal.showLoading(); } });
 
     try {
-        // 🌟 1. ดึงข้อมูลผู้ใช้งานทั้งหมดในตารางมาพักไว้ในเว็บก่อน (เลี่ยงปัญหา .eq เอ๋อ)
+        // ดึงเฉพาะคอลัมน์ที่จำเป็น ป้องกันปัญหาดึง id ไม่ผ่าน
         const { data: allUsers, error } = await supabaseConnection
-    .from('Users')
-    .select('*');
-        Swal.close(); 
+            .from('Users')
+            .select('username, password, fullname, Username, Password, Fullname');
+
+        Swal.close();
 
         if (error) {
             Swal.fire('เกิดข้อผิดพลาดจากฐานข้อมูล', error.message, 'error');
             return;
         }
 
-        // 🌟 2. ใช้ JavaScript ค้นหาแบบไม่สนตัวพิมพ์เล็กพิมพ์ใหญ่ และตัดช่องว่างทิ้งทั้งหมด
+        // ค้นหาแถวที่ป้อนข้อมูลตรงกันแบบยืดหยุ่น (ไม่สนตัวเล็กตัวใหญ่)
         const matchedUser = allUsers.find(u => {
-            // ดึงค่าจากแถวในตาราง (รองรับทั้งชื่อคอลัมน์ตัวเล็กและตัวใหญ่)
             const dbUsername = (u.username || u.Username || '').toString().trim().toLowerCase();
             const dbPassword = (u.password || u.Password || '').toString().trim();
-            
             return dbUsername === username.toLowerCase() && dbPassword === password;
         });
 
-        // 🌟 3. ตรวจสอบผลลัพธ์
         if (matchedUser) {
-            // รองรับทั้ง fullname และ Fullname
             currentUserName = matchedUser.fullname || matchedUser.Fullname || username; 
             $('#userNameDisplay').html(`<i class="bi bi-person-circle"></i> คุณ: ${currentUserName}`);
             
-            // สลับหน้าจอเปิดคลังสินค้า
             $('#loginPage').addClass('hidden');
             $('#mainPage').removeClass('hidden');
 
             Swal.fire('สำเร็จ!', `ยินดีต้อนรับคุณ ${currentUserName} เข้าสู่ระบบ`, 'success');
             
-            // โหลดข้อมูลตารางอื่น ๆ
             loadStockData();
             loadLogsData();
         } else {
             Swal.fire('ล้มเหลว', 'ชื่อผู้ใช้งานหรือรหัสผ่านไม่ถูกต้อง', 'error');
         }
-
     } catch (err) {
         Swal.close();
         Swal.fire('ผิดพลาดร้ายแรง', 'สาเหตุ: ' + err.message, 'error');
     }
+}
 
 async function loadStockData() {
     $('#dataTable').html('<tr><td colspan="5" class="text-center text-muted">กำลังดึงข้อมูลคลัง...</td></tr>');
@@ -246,6 +243,7 @@ function renderStockTable() {
     } else {
         pageData.forEach(row => {
             let imgDisplay = row.Img_url ? row.Img_url : 'https://via.placeholder.com/40?text=No';
+            let itemID = row.ID || row.id || '';
             html += `
             <tr style="vertical-align: middle;">
                 <td><img src="${imgDisplay}" class="stock-item-icon"></td>
@@ -257,8 +255,8 @@ function renderStockTable() {
                 <td><span class="badge-qty">${row.Qty || 0} ${row.Unit || 'หน่วย'}</span></td>
                 <td><span class="badge bg-light text-dark">${row.Expire_date || '-'}</span></td>
                 <td class="text-center">
-                    <button class="btn btn-sm btn-outline-warning" onclick="manageStock('${row.ID}', '${row.Name}', ${row.Qty}, '${row.Unit}', '${row.Category || 'วัสดุกลาง'}')">เบิก/รับ</button>
-                    <button class="btn btn-sm btn-outline-danger" onclick="deleteItem('${row.ID}')"><i class="bi bi-trash"></i></button>
+                    <button class="btn btn-sm btn-outline-warning" onclick="manageStock('${itemID}', '${row.Name}', ${row.Qty}, '${row.Unit}', '${row.Category || 'วัสดุกลาง'}')">เบิก/รับ</button>
+                    <button class="btn btn-sm btn-outline-danger" onclick="deleteItem('${itemID}')"><i class="bi bi-trash"></i></button>
                 </td>
             </tr>`;
         });
@@ -299,7 +297,11 @@ function manageStock(id, itemName, currentQty, itemUnit, itemCategory) {
             }
 
             Swal.showLoading();
-            const { error: updateError } = await supabaseConnection.from('Materials').update({ Qty: newQty }).eq('ID', id);
+            
+            // ตรวจสอบและอัปเดตอิงตาม Primary Key ของตาราง Materials ทั้งตัวเล็กตัวใหญ่
+            let targetTable = supabaseConnection.from('Materials').update({ Qty: newQty });
+            const { error: updateError } = await targetTable.or(`ID.eq.${id},id.eq.${id}`);
+
             if (updateError) { Swal.fire('ล้มเหลว', updateError.message, 'error'); return; }
 
             await supabaseConnection.from('Logs').insert([{ "Item ID": id, Name: itemName, Date: type, Catgory: itemCategory, Qty: changeQty, Unit: itemUnit, LogUser: currentUserName }]);
@@ -338,47 +340,4 @@ async function loadLogsData() {
         let html = '';
         if (Logs.length === 0) { html = '<tr><td colspan="5" class="text-center text-muted">ไม่พบข้อมูลประวัติ</td></tr>'; } 
         else {
-            Logs.forEach(row => {
-                html += `<tr>
-                    <td><span class="badge ${row.Date === 'เบิกออก' ? 'bg-danger' : 'bg-success'}">${row.Date || '-'}</span></td>
-                    <td><b>${row.Name || '-'}</b></td>
-                    <td>${row.Catgory || '-'}</td>
-                    <td><b>${row.Qty || 0}</b> ${row.Unit || ''}</td>
-                    <td><small class="text-muted">${row.LogUser || '-'}</small></td>
-                </tr>`;
-            });
-        }
-        $('#logsTableBody').html(html);
-    }
-}
-
-async function deleteItem(id) {
-    Swal.fire({ title: 'ยืนยันการลบ?', text: "รายการนี้จะถูกลบออกจากคลังถาวร!", icon: 'warning', showCancelButton: true, confirmButtonColor: '#d33', confirmButtonText: 'ใช่, ลบเลย!', cancelButtonText: 'ยกเลิก' }).then(async (result) => {
-        if (result.isConfirmed) {
-            Swal.showLoading();
-            const { error } = await supabaseConnection.from('Materials').delete().eq('ID', id);
-            if (error) { Swal.fire('ล้มเหลว', error.message, 'error'); } 
-            else { Swal.fire('ลบแล้ว!', 'ลบข้อมูลสำเร็จ', 'success'); loadStockData(); }
-        }
-    });
-}
-
-function renderPagination(elementId, totalRows, currentPage, onPageClick) {
-    const totalPages = Math.ceil(totalRows / rowsPerPage);
-    let html = '';
-    if(totalPages <= 1) { $(`#${elementId}`).html(''); return; }
-    html += `<li class="page-item ${currentPage === 1 ? 'disabled' : ''}"><a class="page-link" href="#" onclick="event.preventDefault();">ก่อนหน้า</a></li>`;
-    for (let i = 1; i <= totalPages; i++) { html += `<li class="page-item ${currentPage === i ? 'active' : ''}"><a class="page-link" href="#" data-page="${i}">${i}</a></li>`; }
-    html += `<li class="page-item ${currentPage === totalPages ? 'disabled' : ''}"><a class="page-link" href="#" onclick="event.preventDefault();">ถัดไป</a></li>`;
-    $(`#${elementId}`).html(html);
-    $(`#${elementId} .page-link`).on('click', function(e) { e.preventDefault(); const p = $(this).data('page'); if(p) onPageClick(p); });
-}
-
-function confirmLogout() {
-    Swal.fire({ title: 'ยืนยันการออกจากระบบ?', icon: 'question', showCancelButton: true, confirmButtonText: 'ออก', cancelButtonText: 'ยกเลิก' }).then((result) => {
-        if (result.isConfirmed) { $('#user').val(''); $('#pass').val(''); $('#mainPage').addClass('hidden'); $('#loginPage').removeClass('hidden'); }
-    });
-}
-</script>
-</body>
-</html>
+            Logs.forEach(
