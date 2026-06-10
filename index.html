@@ -143,13 +143,13 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
 <script>
-// 🔑 เชื่อมต่อคลาวด์ Supabase
+// 🔑 เชื่อมต่อคลาวด์ระบบฐานข้อมูลข้อมูลสต็อก
 const SUPABASE_URL = "https://cqcnpuwpozqwmwgufxzn.supabase.co"; 
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNxY25wdXdwb3pxd213Z3VmeHpuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA5ODMxNTgsImV4cCI6MjA5NjU1OTE1OH0.3A_C2Og_sxHHmgb4dIFsMjQHzrdCbtOKvVwgiuviB1c"; 
 
 const supabase = Supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-// ตัวแปรระบบ
+// ตัวแปรภายในโปรแกรม
 let masterStockData = []; 
 let masterLogsData = [];  
 let filteredStock = [];   
@@ -170,13 +170,13 @@ $(document).ready(function() {
 });
 
 // ==========================================
-// 🔐 ฟังก์ชัน: ตรวจสอบและเข้าสู่ระบบ
+// 🔐 ฟังก์ชัน: ตรวจสอบและเข้าสู่ระบบ (รวมตัวเช็คค่าว่าง)
 // ==========================================
 async function doLogin() {
     const username = $('#user').val() ? $('#user').val().trim() : '';
     const password = $('#pass').val() ? $('#pass').val().trim() : '';
 
-    // ส่วนเช็คค่าว่าง (ถ้ากดปุ่มตอนค่าว่าง จุดนี้จะทำงานแน่นอน 100% ครับ)
+    // ส่วนการตรวจสอบค่าว่าง - จุดนี้ต้องแจ้งเตือนทันทีเมื่อปล่อยช่องว่างไว้
     if (username === '' || password === '') {
         Swal.fire('คำเตือน', 'กรุณากรอกชื่อผู้ใช้งานและรหัสผ่าน', 'warning');
         return;
@@ -189,7 +189,7 @@ async function doLogin() {
     });
 
     try {
-        // อ้างอิงตามตาราง Users (ตัวพิมพ์เล็กหมด) ในรูปภาพของคุณ
+        // อ้างอิงตาราง Users ตัวพิมพ์เล็กตามโครงสร้างหน้าเว็บจริงของคุณ
         const { data: Users, error } = await supabase
             .from('Users')
             .select('*')
@@ -220,7 +220,7 @@ async function doLogin() {
 }
 
 // ==========================================
-// 📊 ฟังก์ชัน: ดึงข้อมูลคลังสินค้า (Materials ตัวใหญ่)
+// 📊 ฟังก์ชัน: โหลดตารางสินค้าคลัง (Materials)
 // ==========================================
 async function loadStockData() {
     $('#dataTable').html('<tr><td colspan="5" class="text-center text-muted">กำลังดึงข้อมูลคลัง...</td></tr>');
@@ -274,7 +274,7 @@ function renderStockTable() {
 }
 
 // ==========================================
-// 📈 ฟังก์ชัน: เบิก/รับสต็อก + บันทึกประวัติลงตาราง Logs
+// 📈 ฟังก์ชัน: ปรับปรุงสต็อกเบิกจ่ายเข้าตาราง Logs
 // ==========================================
 function manageStock(id, itemName, currentQty, itemUnit, itemCategory) {
     Swal.fire({
@@ -320,7 +320,7 @@ function manageStock(id, itemName, currentQty, itemUnit, itemCategory) {
                 return;
             }
 
-            // บันทึกเข้าตาราง Logs อิงตามรูปหัวคอลัมน์ของคุณเป๊ะๆ
+            // จัดเก็บลงตารางบันทึกประวัติการเบิกจ่าย (Logs)
             await supabase
                 .from('Logs')
                 .insert([
@@ -343,7 +343,7 @@ function manageStock(id, itemName, currentQty, itemUnit, itemCategory) {
 }
 
 // ==========================================
-// 📥 ฟังก์ชัน: เพิ่มวัสดุใหม่
+// 📥 ฟังก์ชัน: การเพิ่มรายการผลิตภัณฑ์ใหม่
 // ==========================================
 async function submitForm() {
     const form = document.getElementById('stockForm');
@@ -375,7 +375,7 @@ async function submitForm() {
 }
 
 // ==========================================
-// 🕒 ฟังก์ชัน: ดึงประวัติ Logs
+// 🕒 ฟังก์ชัน: เรียกประวัติข้อมูลชุดบันทึกย้อนหลัง
 // ==========================================
 async function loadLogsData() {
     const { data: Logs, error } = await supabase.from('Logs').select('*');
@@ -401,7 +401,7 @@ async function loadLogsData() {
 }
 
 // ==========================================
-// 🗑️ ฟังก์ชัน: ลบรายการสินค้า
+// 🗑️ ฟังก์ชัน: การลบแถวข้อมูล
 // ==========================================
 async function deleteItem(id) {
     Swal.fire({
