@@ -1,6 +1,6 @@
 // 🔑 1. ค่าคอนฟิกเชื่อมต่อระบบคลาวด์ Supabase
 const SUPABASE_URL = "https://cqcnpuwpozqwmwgufxzn.supabase.co"; // รหัสโปรเจกต์ของคุณ
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."; // ใส่รหัส Anon Key ของคุณตรงนี้
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNxY25wdXdwb3pxd213Z3VmeHpuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA5ODMxNTgsImV4cCI6MjA5NjU1OTE1OH0.3A_C2Og_sxHHmgb4dIFsMjQHzrdCbtOKvVwgiuviB1c"; // ใส่รหัส Anon Key ของคุณตรงนี้
 
 const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
