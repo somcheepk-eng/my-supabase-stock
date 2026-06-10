@@ -328,7 +328,7 @@ async function manageStock(id, itemName, currentQty, itemUnit, itemCategory) {
 
             Swal.fire({ title: 'กำลังบันทึกข้อมูล...', allowOutsideClick: false, didOpen: () => { Swal.showLoading(); } });
 
-            // 1. อัปเดตยอดคงเหลือในตาราง Materials
+            // --- ส่วนที่ 1: จัดการตาราง Materials ---
             const sampleItem = masterStockData[0] || {};
             const dbIDCol = Object.keys(sampleItem).find(k => k.toLowerCase() === 'id') || 'id';
             const dbQtyCol = Object.keys(sampleItem).find(k => k.toLowerCase() === 'qty') || 'Qty';
@@ -346,35 +346,42 @@ async function manageStock(id, itemName, currentQty, itemUnit, itemCategory) {
                 return; 
             }
 
-            // 2. บันทึกประวัติลงตาราง Logs ใหม่ (ชื่อคีย์ตรงตามตารางที่ไม่มีเว้นวรรค)
-            const generatedLogID = "LOG-" + Date.now() + "-" + Math.floor(1000 + Math.random() * 9000);
+            // --- ส่วนที่ 2: จัดการตาราง Logs (ใช้เทคนิคค้นหาคีย์ไดนามิกแบบเดียวกับ submitForm) ---
+            // สร้างประวัติจำลองแถวแรกมาหาชื่อคอลลัมน์ (ถ้าไม่มีข้อมูลเลยจะดึงค่า Default ที่คุณเพิ่งเปลี่ยนใหม่)
+            const sampleLog = (typeof masterLogsData !== 'undefined' && masterLogsData[0]) || {};
             
+            const dbLogID    = Object.keys(sampleLog).find(k => k.toLowerCase() === 'logid') || 'LogID';
+            const dbLogDate  = Object.keys(sampleLog).find(k => k.toLowerCase() === 'date') || 'Date';
+            const dbLogItem  = Object.keys(sampleLog).find(k => k.toLowerCase() === 'itemid') || 'ItemID';
+            const dbLogName  = Object.keys(sampleLog).find(k => k.toLowerCase() === 'name') || 'Name';
+            const dbLogCat   = Object.keys(sampleLog).find(k => k.toLowerCase() === 'category') || 'Category';
+            const dbLogQty   = Object.keys(sampleLog).find(k => k.toLowerCase() === 'qty') || 'Qty';
+            const dbLogUnit  = Object.keys(sampleLog).find(k => k.toLowerCase() === 'unit') || 'Unit';
+            const dbLogUser  = Object.keys(sampleLog).find(k => k.toLowerCase() === 'loguser') || 'LogUser';
+
+            // จัดการข้อมูลคนใช้งานให้ปลอดภัย
             let safeUserName = "Unknown User";
-            if (typeof currentUserName === 'string') {
-                safeUserName = currentUserName;
-            } else if (currentUserName && typeof currentUserName === 'object') {
-                safeUserName = currentUserName.name || currentUserName.username || JSON.stringify(currentUserName);
+            if (typeof currentUserName === 'string') { safeUserName = currentUserName; }
+            else if (currentUserName && typeof currentUserName === 'object') {
+                safeUserName = currentUserName.name || currentUserName.username || "User";
             }
 
-            // ยิงข้อมูลเข้าสู่โครงสร้างตารางใหม่
-            // ดึงวันที่และเวลาปัจจุบันในฟอร์แมตภาษาไทย (เช่น 10/06/2026 14:30:00)
-              const currentDateTime = new Date().toLocaleString('th-TH');
-              
-              const { error: logError } = await supabaseConnection
-                  .from('Logs')
-                  .insert([
-                      {
-                          "LogID": String(generatedLogID),
-                          "Date": String(currentDateTime), // 📅 คราวนี้ Date จะเป็นวันที่จริงๆ แล้ว!
-                          "Action": String(type),          // 🔄 เก็บ "รับเข้า" หรือ "เบิกออก" ในคอลลัมน์ใหม่
-                          "ItemID": String(id),
-                          "Name": String(itemName),
-                          "Category": String(itemCategory),
-                          "Qty": parseInt(changeQty, 10),
-                          "Unit": String(itemUnit),
-                          "LogUser": String(safeUserName)
-                      }
-                ]);
+            // บันทึกวันที่และเวลาทำรายการจริง
+            const currentDateTime = new Date().toLocaleString('th-TH');
+            const generatedLogID = "LOG-" + Date.now() + "-" + Math.floor(1000 + Math.random() * 9000);
+
+            // ประกอบร่าง Payload สำหรับตาราง Logs
+            let logPayload = {};
+            logPayload[dbLogID]   = String(generatedLogID);
+            logPayload[dbLogDate] = String(currentDateTime); // วันที่ปัจจุบัน
+            logPayload[dbLogItem] = String(id);
+            logPayload[dbLogName] = String(itemName);
+            logPayload[dbLogCat]  = String(itemCategory);
+            logPayload[dbLogQty]  = parseInt(changeQty, 10);
+            logPayload[dbLogUnit] = String(itemUnit);
+            logPayload[dbLogUser] = String(safeUserName);
+
+            const { error: logError } = await supabaseConnection.from('Logs').insert([logPayload]);
 
             Swal.close();
 
@@ -459,41 +466,47 @@ async function submitForm() {
 }
 async function loadLogsData() {
     try {
-        // ดึงข้อมูลสด ๆ จากฐานข้อมูลที่ตัวแอปหน้าเว็บตัวนี้ผูกไว้จริง ๆ 
-        const { data: Logs, error } = await supabaseConnection
-            .from('Logs')
-            .select('*');
+        const { data: Logs, error } = await supabaseConnection.from('Logs').select('*');
         
         if (error) {
-            console.error("Logs Error:", error);
-            $('#logsTableBody').html(`<tr><td colspan="5" class="text-center text-danger">โหลดประวัติล้มเหลว: ${error.message}</td></tr>`);
+            console.error("Logs Fetch Error:", error);
+            $('#logsTableBody').html(`<tr><td colspan="5" class="text-center text-danger">ไม่สามารถโหลดประวัติได้</td></tr>`);
             return;
         }
 
-        console.log("👉 ข้อมูล Logs ที่ดึงได้จากเบสจริงในแอปขณะนี้:", Logs);
+        // เก็บข้อมูลดิบเข้าตัวแปร Global เผื่อให้ฟังก์ชันอื่นดึงไปใช้วิเคราะห์คีย์
+        window.masterLogsData = Logs;
 
         let html = '';
-        // 🚨 จุดพิสูจน์: ถ้าในตารางเบสที่แอปผูกอยู่ไม่มีข้อมูลจริง ๆ หน้าเว็บจะต้องขึ้นคำว่า "ไม่พบข้อมูลประวัติ" ทันทีที่โหลดหน้าจอ
         if (!Logs || Logs.length === 0) { 
-            html = '<tr><td colspan="5" class="text-center text-muted">ไม่พบข้อมูลประวัติในฐานข้อมูลนี้</td></tr>'; 
+            html = '<tr><td colspan="5" class="text-center text-muted">ไม่พบข้อมูลประวัติ</td></tr>'; 
         } else {
-            // เรียงลำดับจากใหม่ไปเก่าด้วยเวลาของ Log ID (สแกนจากก้อนข้อความสตริงแบบย้อนกลับ)
+            const sampleLog = Logs[0];
+            const dbLogID    = Object.keys(sampleLog).find(k => k.toLowerCase() === 'logid') || 'LogID';
+            const dbLogDate  = Object.keys(sampleLog).find(k => k.toLowerCase() === 'date') || 'Date';
+            const dbLogName  = Object.keys(sampleLog).find(k => k.toLowerCase() === 'name') || 'Name';
+            const dbLogCat   = Object.keys(sampleLog).find(k => k.toLowerCase() === 'category') || 'Category';
+            const dbLogQty   = Object.keys(sampleLog).find(k => k.toLowerCase() === 'qty') || 'Qty';
+            const dbLogUnit  = Object.keys(sampleLog).find(k => k.toLowerCase() === 'unit') || 'Unit';
+            const dbLogUser  = Object.keys(sampleLog).find(k => k.toLowerCase() === 'loguser') || 'LogUser';
+
+            // เรียงลำดับจากใหม่ไปเก่า
             const sortedLogs = Logs.sort((a, b) => {
-                const aKey = a["Log ID"] || "";
-                const bKey = b["Log ID"] || "";
-                return bKey.localeCompare(aKey);
+                return (b[dbLogID] || "").localeCompare(a[dbLogID] || "");
             });
 
             sortedLogs.forEach(row => {
-                let action = row["Date"] || '-';
-                let itemLogName = row["Name"] || '-';
-                let itemLogCat = row["Catgory"] || '-';
-                let itemLogQty = row["Qty"] || 0;
-                let itemLogUnit = row["Unit"] || '';
-                let itemLogUser = row["LogUser"] || '-';
+                let logDate = row[dbLogDate] || '-';
+                let itemLogName = row[dbLogName] || '-';
+                let itemLogCat = row[dbLogCat] || '-';
+                let itemLogQty = row[dbLogQty] || 0;
+                let itemLogUnit = row[dbLogUnit] || '';
+                let itemLogUser = row[dbLogUser] || '-';
 
+                // ปรับแต่งการแสดงผลป้าย "รับเข้า/เบิกออก" โดยดูจากสภาพแวดล้อมหรือข้อความประกอบ
+                // (ถ้า Date เก็บเวลา สามารถเขียนแยกหรือโชว์เวลาควบคู่ได้เลยครับ)
                 html += `<tr>
-                    <td><span class="badge ${action === 'เบิกออก' ? 'bg-danger' : 'bg-success'}">${action}</span></td>
+                    <td><small class="text-muted">${logDate}</small></td>
                     <td><b>${itemLogName}</b></td>
                     <td>${itemLogCat}</td>
                     <td><b>${itemLogQty}</b> ${itemLogUnit}</td>
@@ -503,7 +516,7 @@ async function loadLogsData() {
         }
         $('#logsTableBody').html(html);
     } catch (err) {
-        $('#logsTableBody').html(`<tr><td colspan="5" class="text-center text-danger">ระบบขัดข้อง: ${err.message}</td></tr>`);
+        $('#logsTableBody').html(`<tr><td colspan="5" class="text-center text-danger">ระบบภายในขัดข้อง: ${err.message}</td></tr>`);
     }
 }
 async function deleteItem(id) {
