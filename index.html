@@ -346,30 +346,36 @@ async function manageStock(id, itemName, currentQty, itemUnit, itemCategory) {
             // 2. ✨ บันทึกประวัติลงตาราง Logs (แปลงค่า Qty ให้เป็น Integer แน่นอน 100%)
             const generatedLogID = "LOG-" + Date.now() + "-" + Math.floor(Math.random() * 1000);
 
+            // บังคับเปลี่ยนโครงสร้าง Key ให้เป็น String และพิมพ์ใหญ่ตามตารางจริงแน่นอน
             const logPayload = { 
-                "Log ID": generatedLogID,
-                "Date": type, 
-                "Item ID": String(id), // แปลงเป็นข้อความเผื่อคอลัมน์ในตาราง Logs เป็น text
-                "Name": itemName, 
-                "Catgory": itemCategory, 
-                "Qty": parseInt(changeQty, 10), // 👈 บังคับให้เป็นตัวเลข int8 ตรงตามโครงสร้างฐานข้อมูลแน่นอน
-                "Unit": itemUnit, 
-                "LogUser": currentUserName 
+                "Log ID": String(generatedLogID),
+                "Date": String(type), 
+                "Item ID": String(id), 
+                "Name": String(itemName), 
+                "Catgory": String(itemCategory), 
+                "Qty": parseInt(changeQty, 10), 
+                "Unit": String(itemUnit), 
+                "LogUser": String(currentUserName) 
             };
             
-            // ยิงข้อมูลเข้าสู่ตาราง Logs บน Supabase พร้อมเช็คเออเรอร์
-            const { error: logError } = await supabaseConnection.from('Logs').insert([logPayload]);
+            // ยิงข้อมูลเข้าสู่ตาราง Logs และสั่งเลือกดึงข้อมูลกลับ (.select) เพื่อเช็คว่าเข้าตารางจริงไหม
+            const { data: logCheck, error: logError } = await supabaseConnection
+                .from('Logs')
+                .insert([logPayload])
+                .select(); // ✨ เพิ่ม .select() เพื่อบังคับให้ตรวจจับสถานะการบันทึกจริง
             
-            // 🚨 ถ้าเกิดเหตุการณ์บันทึกประวัติหลังบ้านไม่สำเร็จ ให้แจ้งเตือนทันที! จะได้รู้สาเหตุ
             if (logError) {
                 console.error("Log Insert Error:", logError);
-                Swal.fire('อัปเดตสต็อกสำเร็จ แต่บันทึกประวัติล้มเหลว', logError.message, 'warning');
+                Swal.fire('ตัดสต็อกสำเร็จ แต่บันทึกประวัติล้มเหลว', `สาเหตุหลังบ้าน: ${logError.message}`, 'error');
                 loadStockData();
                 return;
             }
+
+            // ถ้ายิงผ่านสำเร็จ ข้อมูลในฐานข้อมูลต้องไม่เป็นค่าว่าง
+            console.log("บันทึกสำเร็จจริง:", logCheck);
             
             Swal.fire('สำเร็จ', `อัปเดตสต็อกและบันทึกประวัติสำเร็จ คงเหลือ: ${newQty} ${itemUnit}`, 'success');
-            loadStockData(); 
+            loadStockData();
 
             // 3. แสดงผลบนหน้าเว็บ Real-time
             let newRowHtml = `<tr>
