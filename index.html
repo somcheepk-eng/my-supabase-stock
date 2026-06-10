@@ -230,47 +230,39 @@ $(document).ready(function() {
 // 🔐 ฟังก์ชัน: เข้าสู่ระบบ
 // ==========================================
 async function doLogin() {
+    // 1. ดึงค่าจากช่อง Input มาเช็คก่อน
     const username = $('#user').val() ? $('#user').val().trim() : '';
     const password = $('#pass').val() ? $('#pass').val().trim() : '';
 
+    // 2. ตรวจสอบค่าว่าง (ถ้าว่างป๊อปอัปเตือนจะเด้งทันทีตรงนี้แน่นอน!)
     if (username === '' || password === '') {
         Swal.fire('คำเตือน', 'กรุณากรอกชื่อผู้ใช้งานและรหัสผ่าน', 'warning');
         return;
     }
 
+    // 3. แสดงสถานะกำลังโหลด
     Swal.fire({
         title: 'กำลังตรวจสอบข้อมูล...',
         allowOutsideClick: false,
         didOpen: () => { Swal.showLoading(); }
     });
 
-    try {
-        const { data: Users, error } = await supabase
-            .from('Users')
-            .select('*')
-            .eq('username', username)
-            .eq('password', password)
-            .single();
+    // 4. ส่งค่าไปตรวจสอบที่ฟังก์ชัน loginProcess ใน app.js
+    const isSuccess = await loginProcess(username, password);
+    
+    Swal.close(); // ปิดโหลดดิ่ง
 
-        Swal.close();
+    if (isSuccess) {
+        // แสดงชื่อบนแถบเมนู
+        $('#userNameDisplay').html(`<i class="bi bi-person-circle"></i> คุณ: ${currentUserName}`);
+        
+        // สลับหน้าจอซ่อนหน้า Login เปิดหน้าหลัก
+        $('#loginPage').addClass('hidden');
+        $('#mainPage').removeClass('hidden');
 
-        if (error || !Users) {
-            Swal.fire('ล้มเหลว', 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง', 'error');
-        } else {
-            //  แก้ไขแล้ว: ดึงจาก fullname ให้ตรงกับตารางบน Supabase เป๊ะ ๆ
-            currentUserName = Users.fullname || username; 
-            $('#userNameDisplay').html(`<i class="bi bi-person-circle"></i> คุณ: ${currentUserName}`);
-            $('#loginPage').addClass('hidden');
-            $('#mainPage').removeClass('hidden');
-
-            Swal.fire('สำเร็จ', `ยินดีต้อนรับคุณ ${currentUserName}`, 'success');
-            
-            loadStockData();
-            loadLogsData();
-        }
-    } catch (err) {
-        Swal.close();
-        Swal.fire('เกิดข้อผิดพลาด', 'ไม่สามารถเชื่อมต่อฐานข้อมูลได้', 'error');
+        // เริ่มดึงข้อมูลตารางสินค้าและประวัติ
+        loadStockData();
+        loadLogsData();
     }
 }
 
