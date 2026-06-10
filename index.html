@@ -419,21 +419,25 @@ async function submitForm() {
     }
 }
 async function loadLogsData() {
-    const { data: Logs, error } = await supabaseConnection.from('Logs').select('*');
-    if (!error && Logs) {
-        let html = '';
-        if (Logs.length === 0) { html = '<tr><td colspan="5" class="text-center text-muted">ไม่พบข้อมูลประวัติ</td></tr>'; } 
-        else {
-            // เรียงประวัติล่าสุดขึ้นก่อนโดยใช้ระบบหาคอลัมน์ ID อัตโนมัติ
-            const sortedLogs = Logs.sort((a,b) => {
-                const aIdKey = Object.keys(a).find(k => k.toLowerCase() === 'id');
-                const bIdKey = Object.keys(b).find(k => k.toLowerCase() === 'id');
-                const aId = aIdKey ? a[aIdKey] : 0;
-                const bId = bIdKey ? b[bIdKey] : 0;
-                return bId - aId;
-            });
+    // ✨ แก้ไขจุดนี้: สั่งให้ Supabase เรียงลำดับเอาข้อมูลใหม่ล่าสุดขึ้นก่อน (ตามเวลา created_at) ตั้งแต่ต้นทาง
+    const { data: Logs, error } = await supabaseConnection
+        .from('Logs')
+        .select('*')
+        .order('created_at', { ascending: false }); // ascending: false คือเอาใหม่ล่าสุดขึ้นก่อน
 
-            sortedLogs.forEach(row => {
+    if (error) {
+        console.error("Logs Error:", error.message);
+        $('#logsTableBody').html('<tr><td colspan="5" class="text-center text-danger">ไม่สามารถโหลดประวัติได้</td></tr>');
+        return;
+    }
+
+    if (Logs) {
+        let html = '';
+        if (Logs.length === 0) { 
+            html = '<tr><td colspan="5" class="text-center text-muted">ไม่พบข้อมูลประวัติ</td></tr>'; 
+        } else {
+            // ไม่ต้องเขียนโค้ด .sort() ฝั่งนี้ให้งงและเสี่ยงพังอีกต่อไป เพราะดึงมาแบบเรียงดีแล้วครับ
+            Logs.forEach(row => {
                 const dateKey = Object.keys(row).find(k => k.toLowerCase() === 'date');
                 const nameKey = Object.keys(row).find(k => k.toLowerCase() === 'name');
                 const catKey = Object.keys(row).find(k => k.toLowerCase() === 'catgory' || k.toLowerCase() === 'category');
@@ -460,7 +464,6 @@ async function loadLogsData() {
         $('#logsTableBody').html(html);
     }
 }
-
 async function deleteItem(id) {
     Swal.fire({ 
         title: 'ยืนยันการลบ?', 
