@@ -455,19 +455,30 @@ async function submitForm() {
     }
 }
 async function loadLogsData() {
-    // ดึงประวัติทั้งหมดจากตาราง Logs
-    const { data: Logs, error } = await supabaseConnection.from('Logs').select('*');
-    
-    if (!error && Logs) {
+    try {
+        // ดึงข้อมูลสด ๆ จากฐานข้อมูลที่ตัวแอปหน้าเว็บตัวนี้ผูกไว้จริง ๆ 
+        const { data: Logs, error } = await supabaseConnection
+            .from('Logs')
+            .select('*');
+        
+        if (error) {
+            console.error("Logs Error:", error);
+            $('#logsTableBody').html(`<tr><td colspan="5" class="text-center text-danger">โหลดประวัติล้มเหลว: ${error.message}</td></tr>`);
+            return;
+        }
+
+        console.log("👉 ข้อมูล Logs ที่ดึงได้จากเบสจริงในแอปขณะนี้:", Logs);
+
         let html = '';
-        if (Logs.length === 0) { 
-            html = '<tr><td colspan="5" class="text-center text-muted">ไม่พบข้อมูลประวัติ</td></tr>'; 
+        // 🚨 จุดพิสูจน์: ถ้าในตารางเบสที่แอปผูกอยู่ไม่มีข้อมูลจริง ๆ หน้าเว็บจะต้องขึ้นคำว่า "ไม่พบข้อมูลประวัติ" ทันทีที่โหลดหน้าจอ
+        if (!Logs || Logs.length === 0) { 
+            html = '<tr><td colspan="5" class="text-center text-muted">ไม่พบข้อมูลประวัติในฐานข้อมูลนี้</td></tr>'; 
         } else {
-            // ✨ เรียงลำดับเอาตัวที่เพิ่งบันทึก (ชื่อ Log-ID ที่มีค่า Timestamp มากกว่า) ขึ้นก่อน
+            // เรียงลำดับจากใหม่ไปเก่าด้วยเวลาของ Log ID (สแกนจากก้อนข้อความสตริงแบบย้อนกลับ)
             const sortedLogs = Logs.sort((a, b) => {
                 const aKey = a["Log ID"] || "";
                 const bKey = b["Log ID"] || "";
-                return bKey.localeCompare(aKey); // เรียงจากข้อความใหม่ไปเก่า
+                return bKey.localeCompare(aKey);
             });
 
             sortedLogs.forEach(row => {
@@ -488,6 +499,8 @@ async function loadLogsData() {
             });
         }
         $('#logsTableBody').html(html);
+    } catch (err) {
+        $('#logsTableBody').html(`<tr><td colspan="5" class="text-center text-danger">ระบบขัดข้อง: ${err.message}</td></tr>`);
     }
 }
 async function deleteItem(id) {
