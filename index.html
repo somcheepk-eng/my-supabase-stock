@@ -346,7 +346,7 @@ async function manageStock(id, itemName, currentQty, itemUnit, itemCategory) {
                 return; 
             }
 
-            // 2. บันทึกประวัติลงตาราง Logs 
+            // 2. บันทึกประวัติลงตาราง Logs ใหม่ (ชื่อคีย์ตรงตามตารางที่ไม่มีเว้นวรรค)
             const generatedLogID = "LOG-" + Date.now() + "-" + Math.floor(1000 + Math.random() * 9000);
             
             let safeUserName = "Unknown User";
@@ -356,7 +356,7 @@ async function manageStock(id, itemName, currentQty, itemUnit, itemCategory) {
                 safeUserName = currentUserName.name || currentUserName.username || JSON.stringify(currentUserName);
             }
 
-            // ยิงข้อมูลเข้า Logs
+            // ยิงข้อมูลเข้าสู่โครงสร้างตารางใหม่
             const { error: logError } = await supabaseConnection
                 .from('Logs')
                 .insert([
@@ -365,7 +365,7 @@ async function manageStock(id, itemName, currentQty, itemUnit, itemCategory) {
                         "Date": String(type),
                         "ItemID": String(id),
                         "Name": String(itemName),
-                        "Category": String(itemCategory), // ✨ แก้ไขจาก Catgory เป็น Category มีตัว e ตรงตามภาพล่าสุดแล้ว!
+                        "Category": String(itemCategory),
                         "Qty": parseInt(changeQty, 10),
                         "Unit": String(itemUnit),
                         "LogUser": String(safeUserName)
@@ -376,17 +376,15 @@ async function manageStock(id, itemName, currentQty, itemUnit, itemCategory) {
 
             if (logError) {
                 console.error("Log Insert Error:", logError);
-                // ดึงรายละเอียด Error จริงมาพิมพ์บอก
-                const detailedError = logError.message || JSON.stringify(logError);
-                Swal.fire('สต็อกอัปเดตแล้ว แต่บันทึกประวัติล้มเหลว', `สาเหตุ: ${detailedError}`, 'warning');
+                Swal.fire('อัปเดตคลังสำเร็จ แต่บันทึกประวัติไม่ได้', logError.message, 'warning');
                 loadStockData();
                 return;
             }
 
-            // 🎉 ความสำเร็จที่แท้จริง!
+            // 🎉 บันทึกเสร็จสมบูรณ์ทั้งสองฝั่ง
             Swal.fire('สำเร็จ', `ทำรายการ ${type} และบันทึกประวัติเรียบร้อยแล้ว`, 'success');
             loadStockData();
-            loadLogsData(); // รีโหลดตารางประวัติจากฐานข้อมูลจริงทันที
+            loadLogsData(); 
         }
     });
 }
