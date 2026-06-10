@@ -187,13 +187,13 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
 <script>
-// 🔑 1. ค่าคอนฟิกเชื่อมต่อระบบคลาวด์ Supabase
+// 🔑 1. คอนฟิกเชื่อมต่อ Supabase
 const SUPABASE_URL = "https://cqcnpuwpozqwmwgufxzn.supabase.co"; 
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNxY25wdXdwb3pxd213Z3VmeHpuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA5ODMxNTgsImV4cCI6MjA5NjU1OTE1OH0.3A_C2Og_sxHHmgb4dIFsMjQHzrdCbtOKvVwgiuviB1c"; 
 
 const supabase = Supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-// ตัวแปรระบบค้นหาและแบ่งหน้าแสดงผล
+// ตัวแปรระบบ
 let masterStockData = []; 
 let masterLogsData = [];  
 let filteredStock = [];   
@@ -204,7 +204,6 @@ let currentStockPage = 1;
 let currentLogsPage = 1;
 let currentUserName = "Admin"; 
 
-// เมื่อหน้าเว็บโหลดเสร็จ
 $(document).ready(function() {
     $('#searchStock').on('input', function() {
         const keyword = $(this).val().toLowerCase();
@@ -228,7 +227,7 @@ $(document).ready(function() {
 });
 
 // ==========================================
-// 🔐 ฟังก์ชัน: เข้าสู่ระบบ (doLogin)
+// 🔐 ฟังก์ชัน: เข้าสู่ระบบ
 // ==========================================
 async function doLogin() {
     const username = $('#user').val() ? $('#user').val().trim() : '';
@@ -276,7 +275,7 @@ async function doLogin() {
 }
 
 // ==========================================
-// 📊 ฟังก์ชัน: ดึงข้อมูลคลังสินค้า (Materials)
+// 📊 ฟังก์ชัน: ดึงข้อมูลคลังสินค้า
 // ==========================================
 async function loadStockData() {
     $('#dataTable').html('<tr><td colspan="5" class="text-center text-muted">กำลังดึงข้อมูลคลัง...</td></tr>');
@@ -330,7 +329,7 @@ function renderStockTable() {
 }
 
 // ==========================================
-// 📈 ฟังก์ชัน: เบิก/รับสต็อก + บันทึกประวัติลง Logs
+// 📈 ฟังก์ชัน: จัดการสต็อก (เบิก/รับ)
 // ==========================================
 function manageStock(id, itemName, currentQty, itemUnit) {
     Swal.fire({
@@ -397,7 +396,7 @@ function manageStock(id, itemName, currentQty, itemUnit) {
 }
 
 // ==========================================
-// 📥 ฟังก์ชัน: บันทึกรายการวัสดุใหม่ (Insert)
+// 📥 ฟังก์ชัน: เพิ่มวัสดุใหม่
 // ==========================================
 async function submitForm() {
     const form = document.getElementById('stockForm');
@@ -473,7 +472,7 @@ function renderLogsTable() {
 }
 
 // ==========================================
-// 🗑️ ฟังก์ชัน: ลบรายการสินค้า (Delete)
+// 🗑️ ฟังก์ชัน: ลบรายการสินค้า
 // ==========================================
 async function deleteItem(id) {
     Swal.fire({
@@ -500,7 +499,7 @@ async function deleteItem(id) {
 }
 
 // ==========================================
-// 📑 ฟังก์ชันเสริม: สร้างปุ่มเปลี่ยนหน้า (Pagination)
+// 📑 ฟังก์ชันเสริม:Pagination
 // ==========================================
 function renderPagination(elementId, totalRows, currentPage, onPageClick) {
     const totalPages = Math.ceil(totalRows / rowsPerPage);
@@ -527,7 +526,7 @@ function renderPagination(elementId, totalRows, currentPage, onPageClick) {
 }
 
 // ==========================================
-// 🚪 ฟังก์ชัน: ออกจากระบบ (Logout)
+// 🚪 ฟังก์ชัน: ออกจากระบบ
 // ==========================================
 function confirmLogout() {
     Swal.fire({
