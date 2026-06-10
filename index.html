@@ -361,9 +361,9 @@ async function manageStock(id, itemName, currentQty, itemUnit, itemCategory) {
                 .from('Logs')
                 .insert([
                     {
-                        "Log ID": String(generatedLogID),
+                        "LogID": String(generatedLogID),
                         "Date": String(type),
-                        "Item ID": String(id),
+                        "ItemID": String(id),
                         "Name": String(itemName),
                         "Category": String(itemCategory), // ✨ แก้ไขจาก Catgory เป็น Category มีตัว e ตรงตามภาพล่าสุดแล้ว!
                         "Qty": parseInt(changeQty, 10),
