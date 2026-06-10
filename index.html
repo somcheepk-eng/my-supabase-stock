@@ -39,52 +39,79 @@
     }
   </style>
 </head>
-<body> <div id="loginPage" class="container mt-5">
+<body> 
+<body>
+
+<!-- Login Page -->
+<div id="loginPage" class="container mt-5">
   <div class="row justify-content-center">
     <div class="col-md-4">
       <div class="card p-4 shadow-sm mt-5">
-        <h4 class="text-center mb-4"><i class="bi bi-lock-fill"></i> เข้าสู่ระบบคลังวัสดุ-2</h4>
+        <h4 class="text-center mb-4">
+          <i class="bi bi-lock-fill"></i> เข้าสู่ระบบคลังวัสดุ-2
+        </h4>
+
         <div class="mb-3">
           <label class="small fw-bold">ชื่อผู้ใช้งาน (Username)</label>
           <input type="text" id="user" class="form-control" placeholder="ระบุชื่อผู้ใช้งาน">
         </div>
+
         <div class="mb-3">
           <label class="small fw-bold">รหัสผ่าน (Password)</label>
           <input type="password" id="pass" class="form-control" placeholder="ระบุรหัสผ่าน">
         </div>
-        <button type="button" class="btn btn-primary w-100 fw-bold" onclick="doLogin()">เข้าสู่ระบบ</button>
+
+        <button type="button" class="btn btn-primary w-100 fw-bold" onclick="doLogin()">
+          เข้าสู่ระบบ
+        </button>
       </div>
     </div>
   </div>
 </div>
 
+<!-- Main Page -->
 <div id="mainPage" class="hidden">
-  
+
+  <!-- Navbar -->
   <nav class="navbar navbar-dark mb-4">
     <div class="container">
-      <span class="navbar-brand"><i class="bi bi-database-fill-check"></i> ระบบสต็อกวัสดุและสารเคมี-2</span>
+      <span class="navbar-brand">
+        <i class="bi bi-database-fill-check"></i>
+        ระบบสต็อกวัสดุและสารเคมี-2
+      </span>
+
       <div class="d-flex align-items-center">
         <span id="userNameDisplay" class="text-light me-3"></span>
+
         <button class="btn btn-outline-light btn-sm" onclick="confirmLogout()">
-          <i class="bi bi-box-arrow-right"></i> ออกจากระบบ
+          <i class="bi bi-box-arrow-right"></i>
+          ออกจากระบบ
         </button>
       </div>
     </div>
   </nav>
 
   <div class="container-fluid px-4">
+
     <div class="row">
-      
-      <div class="col-md-4 mb-4">
+
+      <!-- Left Column -->
+      <div class="col-lg-4 col-md-5 mb-4">
+
         <div class="card p-4 shadow-sm">
-          <h5 class="mb-3 text-primary"><i class="bi bi-plus-circle"></i> เพิ่มวัสดุใหม่</h5>
+          <h5 class="mb-3 text-primary">
+            <i class="bi bi-plus-circle"></i>
+            เพิ่มวัสดุใหม่
+          </h5>
+
           <form id="stockForm">
+
             <label class="small mt-2 fw-bold">ชื่อวัสดุ/สารเคมี</label>
             <input type="text" name="name" class="form-control" required>
-            
+
             <label class="small mt-2">ขนาด (Specification)</label>
             <input type="text" name="size" class="form-control" placeholder="เช่น 500ml, XL">
-            
+
             <label class="small mt-2">หมวดหมู่</label>
             <select name="category" class="form-select">
               <option>วัสดุกลาง</option>
@@ -92,34 +119,57 @@
               <option>น้ำยาวิชา Hematology</option>
               <option>น้ำยาวิชา Immunology</option>
             </select>
-            
+
             <div class="row">
               <div class="col-6">
                 <label class="small mt-2 fw-bold">จำนวน</label>
                 <input type="number" name="qty" class="form-control" required>
               </div>
+
               <div class="col-6">
                 <label class="small mt-2">หน่วย</label>
                 <input type="text" name="unit" class="form-control" placeholder="ขวด/กล่อง">
               </div>
-            </div> 
-            
+            </div>
+
             <label class="small mt-2">วันหมดอายุ</label>
             <input type="date" name="expiry" class="form-control">
-            
+
             <label class="small mt-2 fw-bold">รูปภาพวัสดุ</label>
             <input type="file" name="imageFile" id="imageFile" class="form-control" accept="image/*">
-            
-            <button type="button" onclick="submitForm()" id="btnSave" class="btn btn-success w-100 mt-4 shadow-sm fw-bold">บันทึกลงฐานข้อมูล</button>
+
+            <button
+              type="button"
+              onclick="submitForm()"
+              id="btnSave"
+              class="btn btn-success w-100 mt-4 shadow-sm fw-bold">
+              บันทึกลงฐานข้อมูล
+            </button>
+
           </form>
         </div>
-      </div> <div class="col-md-8 mb-4">
-        
+
+      </div>
+
+      <!-- Right Column -->
+      <div class="col-lg-8 col-md-7 mb-4">
+
+        <!-- Stock List -->
         <div class="card p-4 shadow-sm mb-4">
+
           <div class="d-flex justify-content-between align-items-center mb-3">
-            <h5 class="mb-0"><i class="bi bi-list-stars text-primary"></i> รายการในคลังข้อมูล (Stock)</h5>
-            <input type="text" id="searchStock" class="form-control form-control-sm w-50" placeholder="ค้นหารายการ...">
+            <h5 class="mb-0">
+              <i class="bi bi-list-stars text-primary"></i>
+              รายการในคลังข้อมูล (Stock)
+            </h5>
+
+            <input
+              type="text"
+              id="searchStock"
+              class="form-control form-control-sm w-50"
+              placeholder="ค้นหารายการ...">
           </div>
+
           <div class="table-responsive">
             <table class="table table-hover align-middle">
               <thead class="table-light">
@@ -134,14 +184,25 @@
               <tbody id="dataTable"></tbody>
             </table>
           </div>
+
           <div class="d-flex justify-content-between align-items-center mt-3 small text-muted">
             <div id="stockInfo">แสดง 0 รายการ</div>
-            <nav><ul class="pagination pagination-sm mb-0" id="stockPagination"></ul></nav>
+
+            <nav>
+              <ul class="pagination pagination-sm mb-0" id="stockPagination"></ul>
+            </nav>
           </div>
+
         </div>
 
+        <!-- Logs -->
         <div class="card p-4 shadow-sm">
-          <h5 class="mb-3 text-secondary"><i class="bi bi-clock-history"></i> ประวัติการเบิก-จ่าย ล่าสุด</h5>
+
+          <h5 class="mb-3 text-secondary">
+            <i class="bi bi-clock-history"></i>
+            ประวัติการเบิก-จ่าย ล่าสุด
+          </h5>
+
           <div class="table-responsive">
             <table class="table table-sm table-hover align-middle">
               <thead class="table-dark">
@@ -156,10 +217,18 @@
               <tbody id="logsTableBody"></tbody>
             </table>
           </div>
+
         </div>
 
-      </div> </div> </div> </div> <script>
-// วางโค้ด JavaScript เดิมของคุณต่อตรงนี้ได้เลยครับ...
+      </div>
+
+    </div>
+
+  </div>
+
+</div>
+
+<script>
 const clientUrl = "https://cqcnpuwpozqwmwgufxzn.supabase.co"; 
 const clientKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNxY25wdXdwb3pxd213Z3VmeHpuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA5ODMxNTgsImV4cCI6MjA5NjU1OTE1OH0.3A_C2Og_sxHHmgb4dIFsMjQHzrdCbtOKvVwgiuviB1c"; 
 
