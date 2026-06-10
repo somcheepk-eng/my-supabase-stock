@@ -451,6 +451,10 @@ async function submitForm() {
     const qty = parseInt(form.qty.value);
     const unit = form.unit.value.trim();
     const expiry = form.expiry.value || null;
+    
+    // ดึงไฟล์ภาพจาก input
+    const fileInput = document.getElementById('imageFile');
+    const file = fileInput.files[0];
 
     if (!name || isNaN(qty)) {
         Swal.fire('คำเตือน', 'กรุณากรอกข้อมูล ชื่อวัสดุ และจำนวน ให้ครบถ้วน', 'warning');
@@ -471,22 +475,49 @@ async function submitForm() {
     const dbStatus = Object.keys(sampleItem).find(k => k.toLowerCase() === 'status') || 'Status';
     const dbImg = Object.keys(sampleItem).find(k => k.toLowerCase() === 'img_url') || 'Img_url';
 
-    // 🌟 ✨ คำนวณหาเลข ID ล่าสุดเพื่อทำการรันเลขต่อเนื่อง (+1) ป้องกันค่า null
+    // คำนวณหาเลข ID ล่าสุด
     let nextID = 1; 
     if (masterStockData && masterStockData.length > 0) {
-        // ดึงเลข id ทั้งหมดออกมาแปลงเป็นตัวเลข แล้วหาค่าที่มากที่สุด
         const allIds = masterStockData.map(item => {
             const val = item[dbID];
             return val ? parseInt(val, 10) : 0;
         }).filter(val => !isNaN(val));
         
         if (allIds.length > 0) {
-            nextID = Math.max(...allIds) + 1; // เอาค่าสูงสุดมาบวก 1 เช่น มี 5 ก็จะได้เลข 6
+            nextID = Math.max(...allIds) + 1;
         }
     }
 
+    // 📸 [ขั้นตอนเพิ่มใหม่] จัดการเรื่องการอัปโหลดไฟล์รูปภาพไปยัง Supabase Storage
+    let imageUrl = "";
+    if (file) {
+        // ตั้งชื่อไฟล์ใหม่เป็น "id_timestamp.ส่วนขยาย" เพื่อป้องกันชื่อไฟล์ซ้ำซ้อน
+        const fileExt = file.name.split('.').pop();
+        const fileName = `${nextID}_${Date.now()}.${fileExt}`;
+        
+        // ⚠️ กรุณาเปลี่ยนคำว่า 'material-images' ให้ตรงกับชื่อ Bucket ที่คุณตั้งไว้ใน Supabase Storage
+        const { data: uploadData, error: uploadError } = await supabaseConnection
+            .storage
+            .from('material-images') 
+            .upload(fileName, file);
+
+        if (uploadError) {
+            Swal.fire('เกิดข้อผิดพลาด', 'ไม่สามารถอัปโหลดรูปภาพได้: ' + uploadError.message, 'error');
+            return; // หยุดทำงานหากรูปภาพอัปโหลดไม่สำเร็จ
+        }
+
+        // ดึง Public URL ของไฟล์ที่อัปโหลดสำเร็จเพื่อบันทึกลง Database
+        const { data: urlData } = supabaseConnection
+            .storage
+            .from('material-images')
+            .getPublicUrl(fileName);
+
+        imageUrl = urlData.publicUrl;
+    }
+
+    // เตรียม Payload บันทึกข้อมูล
     let insertPayload = {};
-    insertPayload[dbID] = nextID; // ส่งเลข ID ที่ระบบคำนวณรันให้อัตโนมัติไปให้ Supabase
+    insertPayload[dbID] = nextID;
     insertPayload[dbName] = name;
     insertPayload[dbSize] = size;
     insertPayload[dbCat] = category;
@@ -494,7 +525,7 @@ async function submitForm() {
     insertPayload[dbUnit] = unit;
     insertPayload[dbExp] = expiry;
     insertPayload[dbStatus] = "ปกติ";
-    insertPayload[dbImg] = "";
+    insertPayload[dbImg] = imageUrl; // ✨ นำ URL รูปภาพที่ได้ (หรือค่าว่างกรณีไม่ได้เลือกรูป) ใส่เข้าคอลลัมน์รูปภาพ
 
     const { error } = await supabaseConnection.from('Materials').insert([insertPayload]);
     Swal.close();
@@ -504,10 +535,9 @@ async function submitForm() {
     } else { 
         Swal.fire('สำเร็จ', 'บันทึกข้อมูลเรียบร้อยแล้ว', 'success'); 
         form.reset(); 
-        loadStockData(); // โหลดข้อมูลใหม่เพื่อให้ ID ล่าสุดอัปเดตเข้าระบบ
+        loadStockData(); // โหลดข้อมูลใหม่เพื่ออัปเดตเข้าระบบ
     }
 }
-
 async function deleteItem(id) {
     Swal.fire({ 
         title: 'ยืนยันการลบ?', 
