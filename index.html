@@ -301,21 +301,24 @@ function manageStock(id, itemName, currentQty, itemUnit, itemCategory) {
             }
 
             Swal.showLoading();
+            
+            // ✨ แก้ไขจุดนี้: เปลี่ยนจาก .or(...) มาใช้ .eq('ID', id) ตัวพิมพ์ใหญ่ตรงตามฐานข้อมูลจริง
             const { error: updateError } = await supabaseConnection
                 .from('Materials')
                 .update({ Qty: newQty })
-                .or(`ID.eq.${id},id.eq.${id}`);
+                .eq('ID', id); 
                 
             if (updateError) { Swal.fire('ล้มเหลว', updateError.message, 'error'); return; }
 
+            // บันทึกประวัติการขยับสต็อกลงตาราง Logs
             await supabaseConnection.from('Logs').insert([{ "Item ID": id, Name: itemName, Date: type, Catgory: itemCategory, Qty: changeQty, Unit: itemUnit, LogUser: currentUserName }]);
+            
             Swal.fire('สำเร็จ', `อัปเดตสต็อกสำเร็จ คงเหลือ: ${newQty} ${itemUnit}`, 'success');
             loadStockData();
             loadLogsData();
         }
     });
 }
-
 async function submitForm() {
     const form = document.getElementById('stockForm');
     const name = form.name.value.trim();
@@ -359,12 +362,30 @@ async function loadLogsData() {
 }
 
 async function deleteItem(id) {
-    Swal.fire({ title: 'ยืนยันการลบ?', text: "รายการนี้จะถูกลบออกจากคลังถาวร!", icon: 'warning', showCancelButton: true, confirmButtonColor: '#d33', confirmButtonText: 'ใช่, ลบเลย!', cancelButtonText: 'ยกเลิก' }).then(async (result) => {
+    Swal.fire({ 
+        title: 'ยืนยันการลบ?', 
+        text: "รายการนี้จะถูกลบออกจากคลังถาวร!", 
+        icon: 'warning', 
+        showCancelButton: true, 
+        confirmButtonColor: '#d33', 
+        confirmButtonText: 'ใช่, ลบเลย!', 
+        cancelButtonText: 'ยกเลิก' 
+    }).then(async (result) => {
         if (result.isConfirmed) {
             Swal.showLoading();
-            const { error } = await supabaseConnection.from('Materials').delete().or(`ID.eq.${id},id.eq.${id}`);
-            if (error) { Swal.fire('ล้มเหลว', error.message, 'error'); } 
-            else { Swal.fire('ลบแล้ว!', 'ลบข้อมูลสำเร็จ', 'success'); loadStockData(); }
+            
+            // ✨ แก้ไขจุดนี้: เปลี่ยนมาใช้ .eq('ID', id) ตัวพิมพ์ใหญ่ เพื่อให้ตรงกับโครงสร้างจริงบน Supabase
+            const { error } = await supabaseConnection
+                .from('Materials')
+                .delete()
+                .eq('ID', id);
+                
+            if (error) { 
+                Swal.fire('ล้มเหลว', error.message, 'error'); 
+            } else { 
+                Swal.fire('ลบแล้ว!', 'ลบข้อมูลสำเร็จ', 'success'); 
+                loadStockData(); 
+            }
         }
     });
 }
