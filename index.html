@@ -340,4 +340,47 @@ async function loadLogsData() {
         let html = '';
         if (Logs.length === 0) { html = '<tr><td colspan="5" class="text-center text-muted">ไม่พบข้อมูลประวัติ</td></tr>'; } 
         else {
-            Logs.forEach(
+            Logs.forEach(row => {
+                html += `<tr>
+                    <td><span class="badge ${row.Date === 'เบิกออก' ? 'bg-danger' : 'bg-success'}">${row.Date || '-'}</span></td>
+                    <td><b>${row.Name || '-'}</b></td>
+                    <td>${row.Catgory || row.Category || '-'}</td>
+                    <td><b>${row.Qty || 0}</b> ${row.Unit || ''}</td>
+                    <td><small class="text-muted">${row.LogUser || '-'}</small></td>
+                </tr>`;
+            });
+        }
+        $('#logsTableBody').html(html);
+    }
+}
+
+async function deleteItem(id) {
+    Swal.fire({ title: 'ยืนยันการลบ?', text: "รายการนี้จะถูกลบออกจากคลังถาวร!", icon: 'warning', showCancelButton: true, confirmButtonColor: '#d33', confirmButtonText: 'ใช่, ลบเลย!', cancelButtonText: 'ยกเลิก' }).then(async (result) => {
+        if (result.isConfirmed) {
+            Swal.showLoading();
+            const { error } = await supabaseConnection.from('Materials').delete().or(`ID.eq.${id},id.eq.${id}`);
+            if (error) { Swal.fire('ล้มเหลว', error.message, 'error'); } 
+            else { Swal.fire('ลบแล้ว!', 'ลบข้อมูลสำเร็จ', 'success'); loadStockData(); }
+        }
+    });
+}
+
+function renderPagination(elementId, totalRows, currentPage, onPageClick) {
+    const totalPages = Math.ceil(totalRows / rowsPerPage);
+    let html = '';
+    if(totalPages <= 1) { $(`#${elementId}`).html(''); return; }
+    html += `<li class="page-item ${currentPage === 1 ? 'disabled' : ''}"><a class="page-link" href="#" onclick="event.preventDefault();">ก่อนหน้า</a></li>`;
+    for (let i = 1; i <= totalPages; i++) { html += `<li class="page-item ${currentPage === i ? 'active' : ''}"><a class="page-link" href="#" data-page="${i}">${i}</a></li>`; }
+    html += `<li class="page-item ${currentPage === totalPages ? 'disabled' : ''}"><a class="page-link" href="#" onclick="event.preventDefault();">ถัดไป</a></li>`;
+    $(`#${elementId}`).html(html);
+    $(`#${elementId} .page-link`).on('click', function(e) { e.preventDefault(); const p = $(this).data('page'); if(p) onPageClick(p); });
+}
+
+function confirmLogout() {
+    Swal.fire({ title: 'ยืนยันการออกจากระบบ?', icon: 'question', showCancelButton: true, confirmButtonText: 'ออก', cancelButtonText: 'ยกเลิก' }).then((result) => {
+        if (result.isConfirmed) { $('#user').val(''); $('#pass').val(''); $('#mainPage').addClass('hidden'); $('#loginPage').removeClass('hidden'); }
+    });
+}
+</script>
+</body>
+</html>
