@@ -35,23 +35,21 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
 <script>
-// 🔑 เชื่อมต่อ Supabase
-const SUPABASE_URL = "https://cqcnpuwpozqwmwgufxzn.supabase.co"; 
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNxY25wdXdwb3pxd213Z3VmeHpuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA5ODMxNTgsImV4cCI6MjA5NjU1OTE1OH0.3A_C2Og_sxHHmgb4dIFsMjQHzrdCbtOKvVwgiuviB1c"; 
+// ประกาศสร้างตัวแปรเชื่อมต่อรอบเดียว มั่นใจได้ว่าไม่ซ้ำชัวร์ครับ
+const clientUrl = "https://cqcnpuwpozqwmwgufxzn.supabase.co"; 
+const clientKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNxY25wdXdwb3pxd213Z3VmeHpuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA5ODMxNTgsImV4cCI6MjA5NjU1OTE1OH0.3A_C2Og_sxHHmgb4dIFsMjQHzrdCbtOKvVwgiuviB1c"; 
 
-const supabase = Supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const supabaseConnection = Supabase.createClient(clientUrl, clientKey);
 
 async function doLogin() {
     const username = $('#user').val() ? $('#user').val().trim() : '';
     const password = $('#pass').val() ? $('#pass').val().trim() : '';
 
-    // ตรวจสอบค่าว่าง
     if (username === '' || password === '') {
         Swal.fire('คำเตือน', 'กรุณากรอกข้อมูลให้ครบถ้วนนะครับ', 'warning');
         return;
     }
 
-    // แสดงสถานะกำลังโหลด
     Swal.fire({
         title: 'กำลังตรวจสอบข้อมูล...',
         allowOutsideClick: false,
@@ -59,8 +57,8 @@ async function doLogin() {
     });
 
     try {
-        // ยิงไปเช็คกับตาราง Users ตัวพิมพ์เล็กตรงตามจริงของคุณ
-        const { data: Users, error } = await supabase
+        // ดึงข้อมูลผ่านตัวแปรเชื่อมต่อที่ตั้งชื่อใหม่
+        const { data: Users, error } = await supabaseConnection
             .from('Users')
             .select('*')
             .eq('username', username)
@@ -74,11 +72,8 @@ async function doLogin() {
         }
 
         if (Users && Users.length > 0) {
-            // ดึงชื่อเต็มมาแสดง (fullname ตัวเล็กตามคอลัมน์จริง)
             const currentUserName = Users[0].fullname || username;
             Swal.fire('สำเร็จ!', `ยินดีต้อนรับคุณ ${currentUserName} เข้าสู่ระบบ`, 'success');
-            
-            // ตรงนี้ระบบล็อกอินผ่านแล้ว! สเต็ปถัดไปค่อยเอาหน้าตารางสต็อกมาเปิดต่อครับ
         } else {
             Swal.fire('ล้มเหลว', 'ชื่อผู้ใช้งานหรือรหัสผ่านไม่ถูกต้อง', 'error');
         }
