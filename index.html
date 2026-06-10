@@ -370,8 +370,9 @@ async function submitForm() {
 
     Swal.fire({ title: 'กำลังบันทึกข้อมูล...', allowOutsideClick: false, didOpen: () => { Swal.showLoading(); } });
     
-    // อ้างอิงหาคอลัมน์ดั้งเดิมแบบยืดหยุ่น
+    // อ้างอิงหาคอลัมน์ดั้งเดิมแบบยืดหยุ่นจากก้อนข้อมูลหลัก
     const sampleItem = masterStockData[0] || {};
+    const dbID = Object.keys(sampleItem).find(k => k.toLowerCase() === 'id') || 'id'; // หาช่องไอดีว่าตัวเล็กหรือใหญ่
     const dbName = Object.keys(sampleItem).find(k => k.toLowerCase() === 'name') || 'Name';
     const dbSize = Object.keys(sampleItem).find(k => k.toLowerCase() === 'size') || 'Size';
     const dbCat = Object.keys(sampleItem).find(k => k.toLowerCase() === 'category') || 'Category';
@@ -381,7 +382,17 @@ async function submitForm() {
     const dbStatus = Object.keys(sampleItem).find(k => k.toLowerCase() === 'status') || 'Status';
     const dbImg = Object.keys(sampleItem).find(k => k.toLowerCase() === 'img_url') || 'Img_url';
 
+    // 🌟 ✨ จุดแก้ไขสยบเออเรอร์: เสก ID อัตโนมัติส่งไปดักไว้ก่อนเลย
+    // ถ้าระบบรองรับข้อความ (text/uuid) จะใช้ตัวบน ถ้ารองรับตัวเลข (int) จะสุ่มตัวเลขหลักล้านให้แทนอัตโนมัติครับ
+    let generatedID;
+    try {
+        generatedID = crypto.randomUUID(); // ได้ชุดรหัสสตริง เช่น 'f81d4fae-7dec-11d0-a765-00a0c91e6bf6'
+    } catch(e) {
+        generatedID = Math.floor(1000000 + Math.random() * 9000000).toString(); // เผื่อบราวเซอร์เก่าสุ่มเป็นตัวเลขสตริง
+    }
+
     let insertPayload = {};
+    insertPayload[dbID] = generatedID; // 👈 ยัดไอดีที่เพิ่งเสกใหม่เข้าไปใน Payload ป้องกันค่าเป็น null คับ!
     insertPayload[dbName] = name;
     insertPayload[dbSize] = size;
     insertPayload[dbCat] = category;
@@ -394,10 +405,36 @@ async function submitForm() {
     const { error } = await supabaseConnection.from('Materials').insert([insertPayload]);
     Swal.close();
 
-    if (error) { Swal.fire('เกิดข้อผิดพลาด', error.message, 'error'); } 
-    else { Swal.fire('สำเร็จ', 'บันทึกข้อมูลเรียบร้อยแล้ว', 'success'); form.reset(); loadStockData(); }
-}
+    if (error) { 
+        // 💡 กรณีที่คอลัมน์ id ในฐานข้อมูลของคุณดันถูกตั้งค่าไว้ว่า "ต้องเป็นตัวเลขเท่านั้น (int8/int4)" ตัวแปรสตริง UUID ด้านบนจะพัง
+        // โค้ดท่อนนี้จะสวมวิญญาณสแตนด์อิน สุ่มเปลี่ยนให้กลายเป็นตัวเลขเพียว ๆ แล้วลองยิงใหม่อีกรอบทันทีครับ!
+        if (error.message.includes("invalid input syntax for type") || error.message.includes("integer")) {
+            Swal.fire({ title: 'ปรับจูนระบบไอดี (Integer)...', allowOutsideClick: false, didOpen: () => { Swal.showLoading(); } });
+            
+            // สุ่มตัวเลขเพียว ๆ 9 หลัก (โอกาสซ้ำยากมาก)
+            let numericID = Math.floor(100000000 + Math.random() * 900000000);
+            insertPayload[dbID] = numericID; 
 
+            const { error: retryError } = await supabaseConnection.from('Materials').insert([insertPayload]);
+            Swal.close();
+            
+            if (retryError) {
+                Swal.fire('เกิดข้อผิดพลาดในการบันทึก', retryError.message, 'error');
+            } else {
+                Swal.fire('สำเร็จ', 'บันทึกข้อมูลวัสดุใหม่เรียบร้อยแล้ว!', 'success');
+                form.reset();
+                loadStockData();
+            }
+        } else {
+            Swal.fire('เกิดข้อผิดพลาด', error.message, 'error'); 
+        }
+    } 
+    else { 
+        Swal.fire('สำเร็จ', 'บันทึกข้อมูลเรียบร้อยแล้ว', 'success'); 
+        form.reset(); 
+        loadStockData(); 
+    }
+}
 async function loadLogsData() {
     const { data: Logs, error } = await supabaseConnection.from('Logs').select('*');
     if (!error && Logs) {
