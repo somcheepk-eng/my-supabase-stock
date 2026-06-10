@@ -345,11 +345,9 @@ async function manageStock(id, itemName, currentQty, itemUnit, itemCategory) {
                 Swal.fire('ล้มเหลวในการอัปเดตสต็อก', updateError.message, 'error'); 
                 return; 
             }
-
-            // 2. ✨ บันทึกประวัติลงตาราง Logs แบบปลอดภัยสูงสุด (เคลียร์ปัญหา Status 400)
+// 2. ✨ บันทึกประวัติลงตาราง Logs แบบระบุทางเลือกความปลอดภัยสูง (สยบ 400 Bad Request)
             const generatedLogID = "LOG-" + Date.now() + "-" + Math.floor(1000 + Math.random() * 9000);
             
-            // ดักจับชื่อผู้ใช้งานให้เป็น String เพียวๆ ป้องกันการส่งค่า Object หลุดไปที่ LogUser
             let safeUserName = "Unknown User";
             if (typeof currentUserName === 'string') {
                 safeUserName = currentUserName;
@@ -357,7 +355,7 @@ async function manageStock(id, itemName, currentQty, itemUnit, itemCategory) {
                 safeUserName = currentUserName.name || currentUserName.username || JSON.stringify(currentUserName);
             }
 
-            // ยิงข้อมูลแบบเรียบง่าย ไม่ใช้คำสั่ง .select() เพื่อลดข้อจำกัดเรื่อง Primary Key ของ Supabase Client
+            // ส่งข้อมูลโดยการระบุส่วนหัว (Options) เพื่อบอก Supabase Client ว่าไม่ต้องพยายามสแกนหาคอลัมน์ id ดั้งเดิม
             const { error: logError } = await supabaseConnection
                 .from('Logs')
                 .insert([
@@ -369,15 +367,17 @@ async function manageStock(id, itemName, currentQty, itemUnit, itemCategory) {
                         "Catgory": String(itemCategory),
                         "Qty": parseInt(changeQty, 10),
                         "Unit": String(itemUnit),
-                        "LogUser": String(safeUserName) // 👈 ล็อกให้เป็นข้อความ text เคลียร์ปัญหาสุดท้ายใน URL
+                        "LogUser": String(safeUserName)
                     }
-                ]);
+                ], { defaultToNull: false }); // 🌟 บล็อกไม่ให้ส่งค่าแปลกปลอมที่ฐานข้อมูลไม่รู้จัก
 
             Swal.close();
 
             if (logError) {
                 console.error("Log Insert Error:", logError);
-                Swal.fire('สต็อกอัปเดตแล้ว แต่บันทึกประวัติล้มเหลว', logError.message, 'warning');
+                // 🌟 แปลงโครงสร้าง Object ออกมาเป็นข้อความให้อ่านออกทันทีถ้ายังติดขัด
+                const detailedError = logError.message || JSON.stringify(logError);
+                Swal.fire('สต็อกอัปเดตแล้ว แต่บันทึกประวัติล้มเหลว', `สาเหตุ: ${detailedError}`, 'warning');
                 loadStockData();
                 return;
             }
@@ -385,10 +385,8 @@ async function manageStock(id, itemName, currentQty, itemUnit, itemCategory) {
             // 🎉 สำเร็จแท้จริง ข้อมูลจะเข้าตารางหลังบ้านแล้วครับ
             Swal.fire('สำเร็จ', `ทำรายการ ${type} และบันทึกประวัติเรียบร้อยแล้ว`, 'success');
             loadStockData();
-            loadLogsData(); // โหลดข้อมูลสดๆ มาแสดงผลบนตารางหน้าเว็บ
+            loadLogsData();
         }
-    });
-}
   
 async function submitForm() {
     const form = document.getElementById('stockForm');
